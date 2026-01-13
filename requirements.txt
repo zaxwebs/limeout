@@ -1,0 +1,21 @@
+# ChromaKey Remover Pro - Dependencies
+# Install with: pip install -r requirements.txt
+
+# GUI Framework
+customtkinter>=5.2.0
+
+# Drag and Drop support
+tkinterdnd2>=0.3.0
+
+# Computer Vision
+opencv-python>=4.8.0
+
+# Numerical operations
+numpy>=1.24.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Video I/O with codec support
+imageio>=2.31.0
+imageio-ffmpeg>=0.4.9
