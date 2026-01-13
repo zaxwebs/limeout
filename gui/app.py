@@ -196,7 +196,7 @@ class ChromaKeyApp(AppBase):
         # ═══════════════════════════════════════════════════════════════
         self.controls_tabs = ctk.CTkTabview(
             self.main_frame,
-            height=200,
+            height=300,
             corner_radius=10,
             segmented_button_selected_color=("#3B8ED0", "#1F6AA5"),
             segmented_button_selected_hover_color=("#36749E", "#1A5A8A")
