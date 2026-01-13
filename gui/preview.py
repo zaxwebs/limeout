@@ -164,9 +164,12 @@ class VideoPreview:
         self.close()
 
 
+import tkinter as tk
+
 class PreviewWidget(ctk.CTkFrame):
     """
     A preview widget that displays processed video frames with enhanced styling.
+    Supports zooming and panning.
     """
     
     def __init__(self, parent, max_height: int = 400, **kwargs):
@@ -174,7 +177,14 @@ class PreviewWidget(ctk.CTkFrame):
         
         self.preview = VideoPreview(max_height=max_height)
         self._current_image = None
+        self._pil_image = None  # Store original PIL image for zooming
         self._is_drop_target = False
+        
+        # Zoom and Pan state
+        self._zoom_level = 1.0
+        self._pan_x = 0
+        self._pan_y = 0
+        self._drag_start = None
         
         # Configure
         self.grid_columnconfigure(0, weight=1)
@@ -225,10 +235,23 @@ class PreviewWidget(ctk.CTkFrame):
         )
         format_label.grid(row=3, column=0, pady=(15, 0))
         
-        # Image label (hidden initially)
-        self.image_label = ctk.CTkLabel(self, text="")
-        self.image_label.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.image_label.grid_remove()
+        # Canvas for image display (hidden initially)
+        self.canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            bg="#2b2b2b"  # Dark background to match theme
+        )
+        self.canvas.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.canvas.grid_remove()
+        
+        # Bind events
+        self.canvas.bind("<ButtonPress-1>", self._on_mouse_down)
+        self.canvas.bind("<B1-Motion>", self._on_mouse_drag)
+        self.canvas.bind("<ButtonRelease-1>", self._on_mouse_up)
+        self.canvas.bind("<MouseWheel>", self._on_mouse_wheel)  # Windows
+        self.canvas.bind("<Button-4>", self._on_mouse_wheel)    # Linux scroll up
+        self.canvas.bind("<Button-5>", self._on_mouse_wheel)    # Linux scroll down
+        self.canvas.bind("<Configure>", self._on_configure)     # specific to resizing
         
         # Drag & drop highlight border
         self._normal_fg = self.cget("fg_color")
@@ -240,13 +263,22 @@ class PreviewWidget(ctk.CTkFrame):
         else:
             self.configure(border_width=0)
     
+    def _on_configure(self, event):
+        """Handle canvas resize."""
+        if self._pil_image:
+            self._redraw_image()
+    
     def load_video(self, video_path: str) -> dict:
         """Load a video and return its info."""
         info = self.preview.load_video(video_path)
         
+        # Reset view
+        self._reset_view()
+        
         # Switch from empty state to image display
         self.empty_state.grid_remove()
-        self.image_label.grid()
+        self.canvas.grid()
+        self.canvas.configure(bg=self._apply_appearance_mode(self.cget("fg_color")))
         
         return info
     
@@ -268,13 +300,90 @@ class PreviewWidget(ctk.CTkFrame):
             frame, processor, crop, show_checkerboard, bg_color
         )
         
-        self._current_image = self.preview.frame_to_photoimage(preview_frame)
-        self.image_label.configure(image=self._current_image, text="")
-    
+        # Convert to PIL Image and store it
+        rgb = cv2.cvtColor(preview_frame, cv2.COLOR_BGR2RGB)
+        self._pil_image = Image.fromarray(rgb)
+        
+        self._redraw_image()
+        
+    def _redraw_image(self):
+        """Redraw the image on the canvas with current zoom and pan."""
+        if self._pil_image is None:
+            return
+            
+        # Get canvas size
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        if canvas_width <= 1 or canvas_height <= 1:
+            return
+
+        # Calculate new dimensions
+        orig_width, orig_height = self._pil_image.size
+        new_width = int(orig_width * self._zoom_level)
+        new_height = int(orig_height * self._zoom_level)
+        
+        # Resize image (use efficient resizing)
+        # For performance, only resize if changed significantly or if zoom is standard
+        resized = self._pil_image.resize((new_width, new_height), Image.Resampling.NEAREST) # Nearest for speed during zoom
+        
+        self._current_image = ImageTk.PhotoImage(resized)
+        
+        # Calculate centered position + pan
+        x = (canvas_width // 2) + self._pan_x
+        y = (canvas_height // 2) + self._pan_y
+        
+        self.canvas.delete("all")
+        self.canvas.create_image(x, y, image=self._current_image, anchor="center")
+        
+    def _reset_view(self):
+        """Reset zoom and pan to defaults."""
+        self._zoom_level = 1.0
+        self._pan_x = 0
+        self._pan_y = 0
+        
+    def _on_mouse_down(self, event):
+        """Handle mouse button down."""
+        self.canvas.scan_mark(event.x, event.y)
+        self._drag_start = (event.x, event.y)
+        
+    def _on_mouse_drag(self, event):
+        """Handle mouse drag."""
+        if self._drag_start:
+            dx = event.x - self._drag_start[0]
+            dy = event.y - self._drag_start[1]
+            
+            self._pan_x += dx
+            self._pan_y += dy
+            
+            self._drag_start = (event.x, event.y)
+            self._redraw_image()
+            
+    def _on_mouse_up(self, event):
+        """Handle mouse button release."""
+        self._drag_start = None
+        
+    def _on_mouse_wheel(self, event):
+        """Handle mouse wheel for zooming."""
+        # Windows: event.delta, Linux: event.num
+        if event.num == 5 or event.delta < 0:
+            factor = 0.9
+        else:
+            factor = 1.1
+            
+        new_zoom = self._zoom_level * factor
+        
+        # Limit zoom
+        if 0.1 < new_zoom < 10.0:
+            self._zoom_level = new_zoom
+            self._redraw_image()
+
     def clear(self):
         """Clear the preview."""
+        self.canvas.delete("all")
         self._current_image = None
-        self.image_label.grid_remove()
+        self._pil_image = None
+        self.canvas.grid_remove()
         self.empty_state.grid()
         self.preview.close()
     
