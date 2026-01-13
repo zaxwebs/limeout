@@ -276,6 +276,19 @@ class ChromaKeyApp(AppBase):
         )
         self.spill_slider.grid(row=1, column=0, sticky="ew", pady=4)
         
+        self.defringe_slider = SliderGroup(
+            effects_frame, "Defringe Transparent", 0, 100, 0, self._on_setting_change
+        )
+        self.defringe_slider.grid(row=2, column=0, sticky="ew", pady=4)
+        
+        # Helper text for defringe
+        ctk.CTkLabel(
+            effects_frame,
+            text="💡 Use Defringe for semi-transparent areas like fins, glass, hair",
+            font=ctk.CTkFont(size=10),
+            text_color=("gray50", "gray55")
+        ).grid(row=3, column=0, sticky="w", pady=(4, 0))
+        
         # ─────────────────────────────────────────────────────────────
         # TAB 3: CROP
         # ─────────────────────────────────────────────────────────────
@@ -513,7 +526,8 @@ class ChromaKeyApp(AppBase):
             v_min=int(self.v_min_slider.get()),
             v_max=255,
             feather=int(self.feather_slider.get()),
-            spill_suppression=self.spill_slider.get() / 100
+            spill_suppression=self.spill_slider.get() / 100,
+            defringe_transparent=self.defringe_slider.get() / 100
         )
     
     def _update_preview(self):

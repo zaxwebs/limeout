@@ -19,6 +19,7 @@ class ChromaKeySettings:
     v_max: int = 255
     feather: int = 2
     spill_suppression: float = 0.5
+    defringe_transparent: float = 0.0  # For semi-transparent areas like fins
     erode_size: int = 1
     dilate_size: int = 1
 
@@ -154,6 +155,91 @@ class ChromaKeyProcessor:
         result = cv2.merge([b_corrected, g_corrected, r_corrected])
         return result.astype(np.uint8)
     
+    def defringe_transparent_areas(self, frame: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """
+        Remove green color contamination from semi-transparent areas.
+        
+        Uses professional color decontamination technique: estimates the amount
+        of green screen "bleeding through" semi-transparent areas and removes it.
+        
+        Args:
+            frame: BGR frame
+            mask: Alpha mask (0-255 where partial values indicate transparency)
+            
+        Returns:
+            BGR frame with green decontamination applied
+        """
+        if self.settings.defringe_transparent <= 0:
+            return frame
+        
+        strength = self.settings.defringe_transparent
+        
+        # Convert to float
+        frame_float = frame.astype(np.float32)
+        b, g, r = cv2.split(frame_float)
+        alpha = mask.astype(np.float32) / 255.0
+        
+        # === METHOD 1: Classic Despill (Green = max(R, B)) ===
+        # This is the industry-standard approach used in Nuke, After Effects, etc.
+        # Green should never exceed the maximum of red and blue in
+        # properly decontaminated footage
+        max_rb = np.maximum(r, b)
+        
+        # Calculate how much to pull green down
+        # In areas where green > max(R,B), there's green contamination
+        green_contamination = np.maximum(0, g - max_rb)
+        
+        # === METHOD 2: Alpha-weighted correction ===
+        # Semi-transparent areas (alpha between 0.02 and 0.98) need more correction
+        # because that's where the green screen shows through
+        semi_transparent_weight = np.where(
+            (alpha > 0.02) & (alpha < 0.98),
+            # Bell curve: maximum at 50% transparency
+            4.0 * alpha * (1.0 - alpha),  # Peaks at 0.5
+            0.0
+        )
+        
+        # Also apply to nearly-transparent areas that still have some visibility
+        edge_weight = np.where(
+            alpha < 0.3,
+            alpha * 3.0,  # Linear ramp for very transparent areas
+            0.0
+        )
+        
+        combined_weight = np.maximum(semi_transparent_weight, edge_weight)
+        
+        # === Apply green removal ===
+        # Base removal: always apply despill to contaminated areas
+        base_removal = green_contamination * strength
+        
+        # Extra removal for semi-transparent areas
+        extra_removal = green_contamination * combined_weight * strength * 2.0
+        
+        total_removal = base_removal + extra_removal
+        
+        # Clamp green channel
+        g_new = np.clip(g - total_removal, 0, 255)
+        
+        # === Color compensation ===
+        # When we remove green, also shift toward red/magenta to counter the green tint
+        # This makes the result look more natural
+        compensation = total_removal * 0.4
+        r_new = np.clip(r + compensation * 0.6, 0, 255)  # Add some red
+        b_new = np.clip(b + compensation * 0.4, 0, 255)  # Add some blue
+        
+        # === Additional: Force green <= max(R,B) in semi-transparent areas ===
+        # This is a hard clamp that guarantees no green spill
+        if strength > 0.5:
+            max_rb_new = np.maximum(r_new, b_new)
+            # Only apply in semi-transparent and transparent areas
+            force_mask = (alpha < 0.95).astype(np.float32)
+            g_clamped = np.minimum(g_new, max_rb_new)
+            g_new = g_new * (1 - force_mask * (strength - 0.5) * 2) + g_clamped * (force_mask * (strength - 0.5) * 2)
+            g_new = np.clip(g_new, 0, 255)
+        
+        result = cv2.merge([b_new, g_new, r_new])
+        return result.astype(np.uint8)
+    
     def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """
         Process a single frame to remove chroma key background.
@@ -169,8 +255,11 @@ class ChromaKeyProcessor:
         mask = self.refine_mask(mask)
         mask = self.apply_feathering(mask)
         
-        # Apply spill suppression
+        # Apply spill suppression (edge-based)
         processed_frame = self.suppress_spill(frame, mask)
+        
+        # Apply transparent defringe (alpha-based)
+        processed_frame = self.defringe_transparent_areas(processed_frame, mask)
         
         # Convert BGR to RGB and add alpha
         r, g, b = cv2.split(processed_frame)[::-1]  # Reverse for RGB
@@ -206,6 +295,7 @@ class ChromaKeyProcessor:
         mask = self.apply_feathering(mask)
         
         processed = self.suppress_spill(frame, mask)
+        processed = self.defringe_transparent_areas(processed, mask)
         
         h, w = frame.shape[:2]
         
