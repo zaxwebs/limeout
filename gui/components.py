@@ -548,3 +548,164 @@ class FrameTimeline(ctk.CTkFrame):
     
     def get_frame(self) -> int:
         return self._current_frame
+
+
+class StabilizationPanel(ctk.CTkFrame):
+    """
+    Panel for controlling video stabilization via point tracking.
+    """
+    
+    def __init__(
+        self,
+        parent,
+        on_enable_change: Optional[Callable[[bool], None]] = None,
+        on_select_point: Optional[Callable[[], None]] = None,
+        on_reset: Optional[Callable[[], None]] = None,
+        **kwargs
+    ):
+        super().__init__(parent, fg_color="transparent", **kwargs)
+        
+        self.on_enable_change = on_enable_change
+        self.on_select_point = on_select_point
+        self.on_reset = on_reset
+        self._tracking_point: Optional[tuple] = None
+        self._is_selecting = False
+        
+        self.grid_columnconfigure(0, weight=1)
+        
+        # Header
+        header = ctk.CTkLabel(
+            self,
+            text="📍 Stabilization",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            anchor="w"
+        )
+        header.grid(row=0, column=0, sticky="w", pady=(0, 8))
+        
+        # Enable toggle
+        self.enable_switch = ctk.CTkSwitch(
+            self,
+            text="Enable Stabilization",
+            command=self._on_enable_change,
+            font=ctk.CTkFont(size=12),
+            progress_color=("#28a745", "#22963E")
+        )
+        self.enable_switch.grid(row=1, column=0, sticky="w", pady=(0, 8))
+        
+        # Description
+        desc = ctk.CTkLabel(
+            self,
+            text="Track a point to stabilize video around it",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60")
+        )
+        desc.grid(row=2, column=0, sticky="w", padx=(24, 0), pady=(0, 10))
+        
+        # Buttons frame
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)
+        
+        # Select Point button
+        self.select_btn = ctk.CTkButton(
+            btn_frame,
+            text="🎯 Select Point",
+            command=self._on_select_click,
+            height=32,
+            corner_radius=6,
+            fg_color=("#3B8ED0", "#1F6AA5"),
+            font=ctk.CTkFont(size=12)
+        )
+        self.select_btn.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        
+        # Reset button
+        self.reset_btn = ctk.CTkButton(
+            btn_frame,
+            text="✕ Reset",
+            command=self._on_reset_click,
+            height=32,
+            corner_radius=6,
+            fg_color=("gray75", "gray30"),
+            hover_color=("#dc3545", "#c82333"),
+            font=ctk.CTkFont(size=12)
+        )
+        self.reset_btn.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        
+        # Tracking point display
+        self.point_label = ctk.CTkLabel(
+            self,
+            text="No point selected",
+            font=ctk.CTkFont(family="Consolas", size=11),
+            text_color=("gray50", "gray60")
+        )
+        self.point_label.grid(row=4, column=0, sticky="w", pady=(4, 0))
+        
+        # Status indicator
+        self.status_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=11),
+            text_color=("#ffc107", "#ffc107")
+        )
+        self.status_label.grid(row=5, column=0, sticky="w", pady=(4, 0))
+    
+    def _on_enable_change(self):
+        if self.on_enable_change:
+            self.on_enable_change(self.get_enabled())
+    
+    def _on_select_click(self):
+        if self._is_selecting:
+            self._set_selecting(False)
+        else:
+            self._set_selecting(True)
+            if self.on_select_point:
+                self.on_select_point()
+    
+    def _on_reset_click(self):
+        self._tracking_point = None
+        self._set_selecting(False)
+        self.point_label.configure(text="No point selected")
+        self.status_label.configure(text="")
+        if self.on_reset:
+            self.on_reset()
+    
+    def _set_selecting(self, selecting: bool):
+        self._is_selecting = selecting
+        if selecting:
+            self.select_btn.configure(
+                text="🎯 Click on Preview...",
+                fg_color=("#ffc107", "#e0a800")
+            )
+            self.status_label.configure(text="Click on the preview to select a tracking point")
+        else:
+            self.select_btn.configure(
+                text="🎯 Select Point",
+                fg_color=("#3B8ED0", "#1F6AA5")
+            )
+            self.status_label.configure(text="")
+    
+    def set_tracking_point(self, x: int, y: int):
+        """Set the tracking point coordinates."""
+        self._tracking_point = (x, y)
+        self._set_selecting(False)
+        self.point_label.configure(text=f"Tracking: ({x}, {y})")
+        self.status_label.configure(
+            text="✓ Point selected",
+            text_color=("#28a745", "#22963E")
+        )
+    
+    def get_enabled(self) -> bool:
+        return bool(self.enable_switch.get())
+    
+    def set_enabled(self, value: bool):
+        if value:
+            self.enable_switch.select()
+        else:
+            self.enable_switch.deselect()
+    
+    def get_tracking_point(self) -> Optional[tuple]:
+        return self._tracking_point
+    
+    def is_selecting(self) -> bool:
+        return self._is_selecting

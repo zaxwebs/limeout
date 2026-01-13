@@ -20,11 +20,13 @@ from gui.components import (
     SliderGroup,
     ProgressPanel,
     StatusLog,
-    FrameTimeline
+    FrameTimeline,
+    StabilizationPanel
 )
 from gui.preview import PreviewWidget
 from processing.chroma_key import ChromaKeyProcessor, ChromaKeySettings
 from processing.video_processor import VideoProcessor, ProcessingOptions
+from processing.stabilizer import PointStabilizer, StabilizationSettings
 from config import config_manager
 from utils.logger import logger
 from utils.validators import ValidationError, validate_video_path
@@ -63,6 +65,7 @@ class ChromaKeyApp(AppBase):
         self.video_path: Optional[str] = None
         self.processor = VideoProcessor()
         self.chroma_settings = ChromaKeySettings()
+        self.stabilizer = PointStabilizer()
         
         # Setup UI
         self._setup_layout()
@@ -288,6 +291,19 @@ class ChromaKeyApp(AppBase):
             font=ctk.CTkFont(size=10),
             text_color=("gray50", "gray55")
         ).grid(row=3, column=0, sticky="w", pady=(4, 0))
+        
+        # Separator
+        separator = ctk.CTkFrame(effects_tab, height=2, fg_color=("gray80", "gray30"))
+        separator.grid(row=2, column=0, sticky="ew", padx=10, pady=15)
+        
+        # Stabilization Panel
+        self.stabilization_panel = StabilizationPanel(
+            effects_tab,
+            on_enable_change=self._on_stabilization_toggle,
+            on_select_point=self._on_start_point_selection,
+            on_reset=self._on_stabilization_reset
+        )
+        self.stabilization_panel.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
         
         # ─────────────────────────────────────────────────────────────
         # TAB 3: CROP
@@ -562,7 +578,12 @@ class ChromaKeyApp(AppBase):
         use_checkerboard = self.preview_bg_color == "checkerboard"
         bg_color = None if use_checkerboard else self.preview_bg_color
         
-        self.preview_widget.update_preview(frame_number, processor, crop, use_checkerboard, bg_color)
+        # Pass stabilizer if enabled
+        stabilizer = self.stabilizer if self.stabilization_panel.get_enabled() else None
+        
+        self.preview_widget.update_preview(
+            frame_number, processor, crop, use_checkerboard, bg_color, stabilizer
+        )
     
     def _start_processing(self):
         """Start video processing in background thread."""
@@ -601,6 +622,10 @@ class ChromaKeyApp(AppBase):
             h = video_info['height'] - top - bottom
             if w > 0 and h > 0:
                 options.crop = (left, top, w, h)
+        
+        # Add stabilizer if enabled
+        if self.stabilization_panel.get_enabled() and self.stabilizer.settings.tracking_point:
+            options.stabilizer = self.stabilizer
         
         # Process in thread
         def process_thread():
@@ -670,3 +695,45 @@ class ChromaKeyApp(AppBase):
         self.preview_widget.clear()
         
         self.destroy()
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # STABILIZATION METHODS
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    def _on_stabilization_toggle(self, enabled: bool):
+        """Handle stabilization enable/disable toggle."""
+        self.stabilizer.settings.enabled = enabled
+        if enabled:
+            logger.info("Stabilization enabled")
+        else:
+            logger.info("Stabilization disabled")
+        self._update_preview()
+    
+    def _on_start_point_selection(self):
+        """Start point selection mode on the preview."""
+        if not self.video_path:
+            return
+        self.preview_widget.enable_point_selection(self._on_tracking_point_selected)
+        logger.info("Click on the preview to select a tracking point")
+    
+    def _on_tracking_point_selected(self, x: int, y: int):
+        """Handle tracking point selection from preview."""
+        # Disable selection mode
+        self.preview_widget.disable_point_selection()
+        
+        # Update stabilizer
+        self.stabilizer.set_tracking_point(x, y)
+        
+        # Update UI
+        self.stabilization_panel.set_tracking_point(x, y)
+        self.preview_widget.set_tracking_point(x, y)
+        
+        logger.success(f"Tracking point set at ({x}, {y})")
+        self._update_preview()
+    
+    def _on_stabilization_reset(self):
+        """Reset stabilization settings."""
+        self.stabilizer.reset()
+        self.preview_widget.clear_tracking_point()
+        logger.info("Stabilization reset")
+        self._update_preview()

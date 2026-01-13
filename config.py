@@ -69,6 +69,10 @@ class AppConfig:
     enable_spill_suppression: bool = True
     default_feather: int = 2
     
+    # Stabilization settings
+    enable_stabilization: bool = False
+    stabilization_border_mode: str = "transparent"  # transparent, replicate, crop
+    
     # File settings
     supported_formats: tuple = (".mp4", ".avi", ".mov", ".mkv", ".webm")
     

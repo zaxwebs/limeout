@@ -11,6 +11,7 @@ from typing import Optional, Callable, Tuple
 from dataclasses import dataclass
 
 from processing.chroma_key import ChromaKeyProcessor, ChromaKeySettings
+from processing.stabilizer import PointStabilizer
 from utils.logger import logger, ProcessingStats
 from utils.validators import (
     validate_video_path, 
@@ -25,6 +26,7 @@ class ProcessingOptions:
     """Options for video processing."""
     crop: Optional[Tuple[int, int, int, int]] = None  # (x, y, width, height)
     target_fps: Optional[float] = None  # None = use source FPS
+    stabilizer: Optional[PointStabilizer] = None  # Stabilizer with tracking point set
 
 
 class VideoProcessor:
@@ -158,6 +160,20 @@ class VideoProcessor:
             # Create processor
             processor = ChromaKeyProcessor(settings)
             
+            # Stabilization analysis pass (if enabled)
+            stabilizer = options.stabilizer
+            if stabilizer and stabilizer.settings.enabled and stabilizer.settings.tracking_point:
+                logger.info("Analyzing video for stabilization...")
+                if not stabilizer.analyze_video(str(input_file), progress_callback):
+                    logger.warning("Stabilization analysis failed, proceeding without stabilization")
+                    stabilizer = None
+                else:
+                    logger.info("Stabilization analysis complete")
+                    # Reset video to beginning
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            else:
+                stabilizer = None
+            
             # Create writer
             logger.info(f"Creating output: {output_file.name}")
             writer = imageio.get_writer(
@@ -186,8 +202,25 @@ class VideoProcessor:
                     x, y, w, h = crop
                     frame = frame[y:y+h, x:x+w]
                 
-                # Process frame
+                # Apply stabilization (before chroma key)
+                if stabilizer:
+                    frame = stabilizer.apply_stabilization(frame, frame_count)
+                    # Convert back to BGR if stabilizer returned BGRA
+                    if len(frame.shape) > 2 and frame.shape[2] == 4:
+                        # Keep alpha for later merge, but process BGR
+                        stab_alpha = frame[:, :, 3]
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+                    else:
+                        stab_alpha = None
+                else:
+                    stab_alpha = None
+                
+                # Process frame with chroma key
                 rgba = processor.process_frame(frame)
+                
+                # Merge stabilization alpha (transparent borders) with chroma key alpha
+                if stab_alpha is not None:
+                    rgba[:, :, 3] = cv2.bitwise_and(rgba[:, :, 3], stab_alpha)
                 
                 # Write frame
                 writer.append_data(rgba)
