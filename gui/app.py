@@ -86,7 +86,7 @@ class ChromaKeyApp(AppBase):
     
     def _setup_sidebar(self):
         """Create the sidebar with controls."""
-        self.sidebar = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray92", "gray14"))
+        self.sidebar = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray88", "gray17"))
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_columnconfigure(0, weight=1)
         
