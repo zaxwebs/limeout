@@ -713,3 +713,95 @@ class StabilizationPanel(ctk.CTkFrame):
     
     def is_selecting(self) -> bool:
         return self._is_selecting
+
+
+class SuccessDialog(ctk.CTkToplevel):
+    """
+    Dialog shown after successful processing with options to open/view file.
+    """
+    
+    def __init__(self, parent, output_path: str, **kwargs):
+        super().__init__(parent, **kwargs)
+        
+        self.output_path = output_path
+        self.title("Processing Complete")
+        self.geometry("450x280")
+        self.resizable(False, False)
+        
+        # Make modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+        
+        # Icon and Message
+        self.label_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.label_frame.grid(row=0, column=0, pady=(20, 10), sticky="ew")
+        self.label_frame.grid_columnconfigure(0, weight=1)
+        
+        self.icon_label = ctk.CTkLabel(
+            self.label_frame,
+            text="✓",
+            font=ctk.CTkFont(size=40),
+            text_color=("#28a745", "#22963E")
+        )
+        self.icon_label.grid(row=0, column=0)
+        
+        self.msg_label = ctk.CTkLabel(
+            self.label_frame,
+            text="Video processed successfully!",
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        self.msg_label.grid(row=1, column=0, pady=(5, 0))
+        
+        # File path (truncated if too long)
+        path = Path(output_path)
+        display_path = path.name
+        if len(display_path) > 40:
+            display_path = display_path[:20] + "..." + display_path[-17:]
+            
+        self.path_label = ctk.CTkLabel(
+            self,
+            text=display_path,
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60")
+        )
+        self.path_label.grid(row=1, column=0, pady=(0, 20))
+        
+        # Buttons
+        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.btn_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
+        self.btn_frame.grid_columnconfigure(0, weight=1)
+        
+        self.open_folder_btn = ctk.CTkButton(
+            self.btn_frame,
+            text="📂 Open Folder",
+            height=36,
+            command=self._open_folder,
+            fg_color=("gray75", "gray30"),
+            hover_color=("gray65", "gray40"),
+            text_color=("gray10", "gray90")
+        )
+        self.open_folder_btn.grid(row=0, column=0, sticky="ew")
+        
+    def _open_folder(self):
+        """Open the folder containing the file."""
+        import subprocess
+        import os
+        try:
+            # Select the file in explorer
+            subprocess.run(f'explorer /select,"{os.path.abspath(self.output_path)}"')
+        except Exception as e:
+            # Fallback to just opening the folder
+            try:
+                os.startfile(os.path.dirname(self.output_path))
+            except Exception:
+                pass
+        self.destroy()

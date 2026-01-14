@@ -21,7 +21,8 @@ from gui.components import (
     ProgressPanel,
     StatusLog,
     FrameTimeline,
-    StabilizationPanel
+    StabilizationPanel,
+    SuccessDialog
 )
 from gui.preview import PreviewWidget
 from processing.chroma_key import ChromaKeyProcessor, ChromaKeySettings
@@ -646,7 +647,7 @@ class ChromaKeyApp(AppBase):
                     self._on_progress
                 )
                 
-                self.after(0, lambda: self._on_processing_complete(success))
+                self.after(0, lambda: self._on_processing_complete(success, output_path))
                 
             except Exception as e:
                 self.after(0, lambda: self._on_processing_error(str(e)))
@@ -657,7 +658,7 @@ class ChromaKeyApp(AppBase):
         """Handle progress update from processing thread."""
         self.after(0, lambda: self.progress_panel.update(progress, status))
     
-    def _on_processing_complete(self, success: bool):
+    def _on_processing_complete(self, success: bool, output_path: str = None):
         """Handle processing completion."""
         self.btn_process.configure(
             state="normal",
@@ -668,7 +669,7 @@ class ChromaKeyApp(AppBase):
         
         if success:
             self.progress_panel.finish("Complete!")
-            messagebox.showinfo("Success", "Video processed successfully!")
+            SuccessDialog(self, output_path)
         else:
             self.progress_panel.reset()
             logger.warning("Processing was cancelled")
