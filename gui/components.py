@@ -639,16 +639,7 @@ class StabilizationPanel(ctk.CTkFrame):
             font=ctk.CTkFont(family="Consolas", size=11),
             text_color=("gray50", "gray60")
         )
-        self.point_label.grid(row=4, column=0, sticky="w", pady=(4, 0))
-        
-        # Status indicator
-        self.status_label = ctk.CTkLabel(
-            self,
-            text="",
-            font=ctk.CTkFont(size=11),
-            text_color=("#ffc107", "#ffc107")
-        )
-        self.status_label.grid(row=5, column=0, sticky="w", pady=(4, 0))
+        self.point_label.grid(row=4, column=0, sticky="w", pady=(2, 0))
     
     def _on_enable_change(self):
         if self.on_enable_change:
@@ -664,9 +655,9 @@ class StabilizationPanel(ctk.CTkFrame):
     
     def _on_reset_click(self):
         self._bounding_box = None
+        self._reference_frame = None
         self._set_selecting(False)
         self.point_label.configure(text="No region selected")
-        self.status_label.configure(text="")
         if self.on_reset:
             self.on_reset()
     
@@ -677,23 +668,21 @@ class StabilizationPanel(ctk.CTkFrame):
                 text="🎯 Draw on Preview...",
                 fg_color=("#ffc107", "#e0a800")
             )
-            self.status_label.configure(text="Click and drag on preview to select region")
+            self.point_label.configure(text="Click and drag on preview...")
         else:
             self.select_btn.configure(
                 text="🎯 Select Region",
                 fg_color=("#3B8ED0", "#1F6AA5")
             )
-            self.status_label.configure(text="")
+            if not self._bounding_box:
+                self.point_label.configure(text="No region selected")
     
-    def set_bounding_box(self, x: int, y: int, w: int, h: int):
-        """Set the bounding box coordinates."""
+    def set_bounding_box(self, x: int, y: int, w: int, h: int, frame: int = 0):
+        """Set the bounding box coordinates and reference frame."""
         self._bounding_box = (x, y, w, h)
+        self._reference_frame = frame
         self._set_selecting(False)
-        self.point_label.configure(text=f"Region: ({x}, {y}) {w}×{h}")
-        self.status_label.configure(
-            text="✓ Region selected",
-            text_color=("#28a745", "#22963E")
-        )
+        self.point_label.configure(text=f"Region: ({x}, {y}) {w}×{h} @ frame {frame}")
     
     def set_tracking_point(self, x: int, y: int):
         """Set tracking point (creates default bounding box for backward compat)."""

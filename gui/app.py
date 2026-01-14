@@ -199,7 +199,7 @@ class ChromaKeyApp(AppBase):
         # ═══════════════════════════════════════════════════════════════
         self.controls_tabs = ctk.CTkTabview(
             self.main_frame,
-            height=300,
+            height=250,
             corner_radius=10,
             segmented_button_selected_color=("#3B8ED0", "#1F6AA5"),
             segmented_button_selected_hover_color=("#36749E", "#1A5A8A")
@@ -209,6 +209,7 @@ class ChromaKeyApp(AppBase):
         # Create tabs
         self.controls_tabs.add("🎨 Color Range")
         self.controls_tabs.add("✨ Effects")
+        self.controls_tabs.add("📍 Stabilize")
         self.controls_tabs.add("✂️ Crop")
         self.controls_tabs.add("🖼️ Preview")
         
@@ -292,21 +293,23 @@ class ChromaKeyApp(AppBase):
             text_color=("gray50", "gray55")
         ).grid(row=3, column=0, sticky="w", pady=(4, 0))
         
-        # Separator
-        separator = ctk.CTkFrame(effects_tab, height=2, fg_color=("gray80", "gray30"))
-        separator.grid(row=2, column=0, sticky="ew", padx=10, pady=15)
+        # ─────────────────────────────────────────────────────────────
+        # TAB 3: STABILIZE
+        # ─────────────────────────────────────────────────────────────
+        stabilize_tab = self.controls_tabs.tab("📍 Stabilize")
+        stabilize_tab.grid_columnconfigure(0, weight=1)
         
         # Stabilization Panel
         self.stabilization_panel = StabilizationPanel(
-            effects_tab,
+            stabilize_tab,
             on_enable_change=self._on_stabilization_toggle,
             on_select_point=self._on_start_point_selection,
             on_reset=self._on_stabilization_reset
         )
-        self.stabilization_panel.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.stabilization_panel.grid(row=0, column=0, sticky="new", padx=10, pady=5)
         
         # ─────────────────────────────────────────────────────────────
-        # TAB 3: CROP
+        # TAB 4: CROP
         # ─────────────────────────────────────────────────────────────
         crop_tab = self.controls_tabs.tab("✂️ Crop")
         crop_tab.grid_columnconfigure(0, weight=1)
@@ -319,7 +322,7 @@ class ChromaKeyApp(AppBase):
         self._setup_crop_sliders()
         
         # ─────────────────────────────────────────────────────────────
-        # TAB 4: PREVIEW
+        # TAB 5: PREVIEW
         # ─────────────────────────────────────────────────────────────
         preview_tab = self.controls_tabs.tab("🖼️ Preview")
         preview_tab.grid_columnconfigure(0, weight=1)
@@ -737,7 +740,7 @@ class ChromaKeyApp(AppBase):
         self.stabilizer.set_bounding_box(orig_x, orig_y, w, h, current_frame)
         
         # Update UI (show in cropped space for display)
-        self.stabilization_panel.set_bounding_box(orig_x, orig_y, w, h)
+        self.stabilization_panel.set_bounding_box(orig_x, orig_y, w, h, current_frame)
         self.preview_widget.set_tracking_box(x, y, w, h)  # Keep in preview space for display
         
         logger.success(f"Tracking region set: ({orig_x}, {orig_y}) {w}×{h} at frame {current_frame}")
