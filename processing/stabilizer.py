@@ -19,6 +19,8 @@ class StabilizationSettings:
     reference_frame_idx: int = 0  # Frame index where the bounding box was selected
     border_mode: str = "transparent"  # "transparent", "replicate", "crop"
     smoothing: float = 0.0  # Future: trajectory smoothing (0 = raw, 1 = max smooth)
+    match_threshold: float = 0.5  # Tracking confidence threshold (0.0-1.0)
+    search_margin: int = 50  # Pixels to search around last position
     
     @property
     def tracking_point(self) -> Optional[Tuple[int, int]]:
@@ -155,7 +157,7 @@ class PointStabilizer:
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         
         # Threshold for good match
-        if max_val < 0.5:
+        if max_val < self.settings.match_threshold:
             return None
         
         # Get matched location
@@ -232,6 +234,10 @@ class PointStabilizer:
                 
                 # Find template in current frame
                 matched_box = self._match_template(frame, self._template, search_region)
+                
+                # Fallback to full frame search if tracking lost
+                if not matched_box:
+                    matched_box = self._match_template(frame, self._template, None)
                 
                 if matched_box:
                     tx, ty, tw, th = matched_box
