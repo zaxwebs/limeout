@@ -1,21 +1,21 @@
-# 🎬 Limeout
+# Limeout
 
-A professional-grade desktop application for removing green/blue screens from videos and exporting them as WebM files with transparency (alpha channel).
+Limeout is a professional-grade desktop application designed for removing green and blue screens from videos. It provides advanced chroma keying capabilities, video stabilization, and high-quality WebM export with transparency.
 
-## ✨ Features
+## Features
 
-- **High-Quality Chroma Keying**: Advanced HSV-based color selection with edge feathering and spill suppression.
-- **Real-Time Preview**: Instantly see technical adjustments on a live preview with custom background options (checkerboard, black, white, red, blue, magenta).
-- **Precision Cropping**: Margin-based cropping (Left, Right, Top, Bottom) to clean up edges.
-- **Frame Navigation**: Step through videos frame-by-frame for precise tuning.
-- **WebM Export**: Exports high-quality WebM videos with preserved alpha transparency.
-- **Modern UI**: Built with CustomTkinter for a sleek, dark-themed professional experience.
+- **Professional Chroma Keying**: Advanced HSV-based color selection with edge feathering, spill suppression, and defringing for semi-transparent details.
+- **Video Stabilization**: Lock your footage to a tracked object (like a subject's eye or specific feature) to eliminate camera movement.
+- **Real-Time Preview**: Inspect adjustments instantly with zoom, pan, and customizable backgrounds (checkerboard or solid colors).
+- **Precision Cropping**: Margin-based cropping to clean up frame edges and remove unwanted tracking artifacts.
+- **WebM Export**: Exports high-efficiency WebM videos with preserved alpha channel transparency, ready for compositing.
+- **Modern Interface**: A clean, dark-themed GUI built for efficient workflow.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - OpenCV
 - CustomTkinter
 - NumPy
@@ -23,8 +23,7 @@ A professional-grade desktop application for removing green/blue screens from vi
 
 ### Installation
 
-1. Clone the repository
-
+1. Clone the repository.
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
@@ -37,19 +36,23 @@ A professional-grade desktop application for removing green/blue screens from vi
    python main.py
    ```
 
-2. **Select Video**: Click the "Select Video" button or drag and drop a video file into the preview area.
-3. **Adjust Color**: Use the "Color Range" tab to target your green/blue screen.
-4. **Fine-Tune**: 
-   - Use **Edge Feather** to soften the subject's edges.
-   - Adjust **Spill Suppression** to remove color reflections from the subject.
-5. **Crop**: Use the "Crop" tab to remove unwanted areas by adjusting the margins.
-6. **Preview**: Switch to the "Preview" tab to check your work against different background colors.
-7. **Export**: Click "Start Processing" and choose your output location.
+2. **Select Video**: Open a video file using the file dialog or by dragging and dropping it into the application window.
+3. **Color Range**: Use the "Color Range" tab to select the background color to remove.
+4. **Effects**:
+   - **Edge Feather**: Soften the boundaries of the subject.
+   - **Spill Suppression**: Remove reflected green/blue spill from the subject.
+   - **Defringe**: Clean up semi-transparent areas (hair, glass, smoke).
+5. **Stabilize**:
+   - Go to the "Stabilize" tab.
+   - Click "Select Region" and draw a box around a distinct feature on the subject.
+   - Enable stabilization to lock the frame to that feature.
+6. **Crop**: Trim unwanted edges or transparent borders caused by stabilization using the "Crop" tab.
+7. **Export**: Click "Start Processing" to render the final video with transparency.
 
-## 🛠️ Configuration
+## Configuration
 
-The application stores settings and presets in `config.py` and `config.json`. Window dimensions and default paths can be adjusted there.
+The application settings, including window dimensions and default paths, can be modified in `config.py` or the generated `config.json` file.
 
-## 📄 License
+## License
 
 MIT License
