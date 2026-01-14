@@ -212,7 +212,44 @@ class ChromaKeyApp(AppBase):
         self.controls_tabs.add("✨ Effects")
         self.controls_tabs.add("📍 Stabilize")
         self.controls_tabs.add("✂️ Crop")
+        self.controls_tabs.add("📏 Dimensions")
         self.controls_tabs.add("🖼️ Preview")
+        
+        # ─────────────────────────────────────────────────────────────
+        # TAB: DIMENSIONS
+        # ─────────────────────────────────────────────────────────────
+        dim_tab = self.controls_tabs.tab("📏 Dimensions")
+        dim_tab.grid_columnconfigure(0, weight=1)
+        
+        # Section header
+        ctk.CTkLabel(
+            dim_tab,
+            text="Resize output (aspect ratio preserved)",
+            font=ctk.CTkFont(size=11),
+            text_color=("gray50", "gray60")
+        ).grid(row=0, column=0, sticky="w", padx=10, pady=(5, 10))
+        
+        dim_frame = ctk.CTkFrame(dim_tab, fg_color="transparent")
+        dim_frame.grid(row=1, column=0, sticky="ew", padx=10)
+        dim_frame.grid_columnconfigure(0, weight=1)
+        
+        self.resize_slider = SliderGroup(
+            dim_frame, "Output Width", 100, 1920, 1920, self._on_setting_change
+        )
+        self.resize_slider.grid(row=0, column=0, sticky="ew", pady=4)
+        
+        # Reset button
+        ctk.CTkButton(
+            dim_frame,
+            text="Reset to Original",
+            height=28,
+            width=120,
+            command=self._reset_resize,
+            fg_color=("gray75", "gray30"),
+            hover_color=("gray65", "gray40"),
+            text_color=("gray10", "gray90"),
+            font=ctk.CTkFont(size=11)
+        ).grid(row=1, column=0, pady=(10, 0))
         
         # ─────────────────────────────────────────────────────────────
         # TAB 1: COLOR RANGE (HSV)
@@ -508,6 +545,10 @@ class ChromaKeyApp(AppBase):
             self.crop_top.set(0)
             self.crop_bottom.set(0)
             
+            # Update resize slider
+            self.resize_slider.slider.configure(to=info['width'])
+            self.resize_slider.set(info['width'])
+            
             # Update info label with icon
             duration = info['frame_count'] / info['fps'] if info['fps'] > 0 else 0
             self.video_info_label.configure(
@@ -534,8 +575,35 @@ class ChromaKeyApp(AppBase):
     
     def _on_setting_change(self, _=None):
         """Handle any setting change."""
+        # Update resize slider cap based on crop
+        if self.video_path:
+            video_info = self.preview_widget.video_info
+            if video_info:
+                w = video_info['width']
+                crop_l = int(self.crop_left.get())
+                crop_r = int(self.crop_right.get())
+                effective_width = max(1, w - crop_l - crop_r)
+                
+                # Update max value
+                self.resize_slider.slider.configure(to=effective_width)
+                
+                # If current value exceeds new mac, clamp it
+                if self.resize_slider.get() > effective_width:
+                    self.resize_slider.set(effective_width)
+        
         self._update_chroma_settings()
         self._update_preview()
+    
+    def _reset_resize(self):
+        """Reset resize slider to max available width."""
+        if self.video_path:
+            video_info = self.preview_widget.video_info
+            if video_info:
+                w = video_info['width']
+                crop_l = int(self.crop_left.get())
+                crop_r = int(self.crop_right.get())
+                effective_width = max(1, w - crop_l - crop_r)
+                self.resize_slider.set(effective_width)
     
     def _on_frame_change(self, frame_number: int):
         """Handle timeline frame change."""
@@ -635,6 +703,15 @@ class ChromaKeyApp(AppBase):
         # Add stabilizer if enabled
         if self.stabilization_panel.get_enabled() and self.stabilizer.settings.tracking_point:
             options.stabilizer = self.stabilizer
+            
+        # Add resize option if changed from default
+        if video_info and 'width' in video_info:
+            target_width = int(self.resize_slider.get())
+            # Only set if significantly different from source (allow small float diffs)
+            crop_width = options.crop[2] if options.crop else video_info['width']
+            
+            if abs(target_width - crop_width) > 1:
+                options.resize_width = target_width
         
         # Process in thread
         def process_thread():

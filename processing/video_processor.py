@@ -27,6 +27,7 @@ class ProcessingOptions:
     crop: Optional[Tuple[int, int, int, int]] = None  # (x, y, width, height)
     target_fps: Optional[float] = None  # None = use source FPS
     stabilizer: Optional[PointStabilizer] = None  # Stabilizer with tracking point set
+    resize_width: Optional[int] = None  # Target output width (height scales to maintain aspect ratio)
 
 
 class VideoProcessor:
@@ -154,6 +155,21 @@ class VideoProcessor:
                 output_width = frame_width
                 output_height = frame_height
             
+            # Calculate final dimensions if resizing
+            target_size = None
+            if options.resize_width and options.resize_width < output_width:
+                scale = options.resize_width / output_width
+                target_width = int(options.resize_width)
+                target_height = int(output_height * scale)
+                
+                # Ensure even dimensions (video codecs prefer even numbers)
+                if target_width % 2 != 0: target_width -= 1
+                if target_height % 2 != 0: target_height -= 1
+                
+                target_size = (target_width, target_height)
+                logger.info(f"Output will be resized to: {target_width}x{target_height}")
+                output_width, output_height = target_width, target_height
+            
             # Initialize stats
             self.stats.start(total_frames)
             
@@ -224,6 +240,10 @@ class VideoProcessor:
                 # Merge stabilization alpha (transparent borders) with chroma key alpha
                 if stab_alpha is not None:
                     rgba[:, :, 3] = cv2.bitwise_and(rgba[:, :, 3], stab_alpha)
+                
+                # Resize if needed
+                if target_size:
+                    rgba = cv2.resize(rgba, target_size, interpolation=cv2.INTER_AREA)
                 
                 # Write frame
                 writer.append_data(rgba)
