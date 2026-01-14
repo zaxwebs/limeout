@@ -1,5 +1,5 @@
 """
-ChromaKey Remover Pro - Professional Green Screen Removal
+Limeout - Professional Green Screen Removal
 
 Entry point for the application.
 """

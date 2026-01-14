@@ -53,7 +53,7 @@ class ChromaKeyApp(AppBase):
         super().__init__()
         
         # Configure window
-        self.title("ChromaKey Remover Pro")
+        self.title("Limeout")
         self.geometry(f"{config_manager.config.window_width}x{config_manager.config.window_height}")
         self.minsize(1000, 750)
         
