@@ -116,8 +116,8 @@ class ChromaKeyApp(AppBase):
             height=42,
             corner_radius=8,
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color=("#28a745", "#22963E"),
-            hover_color=("#218838", "#1E7E34"),
+            fg_color=("gray70", "gray30"),  # Gray when disabled
+            hover_color=("gray65", "gray35"),
             command=self._start_processing,
             state="disabled"
         )
@@ -515,7 +515,12 @@ class ChromaKeyApp(AppBase):
             )
             
             # Enable processing
-            self.btn_process.configure(state="normal")
+            # Enable processing
+            self.btn_process.configure(
+                state="normal",
+                fg_color=("#28a745", "#22963E"),
+                hover_color=("#218838", "#1E7E34")
+            )
             
             # Update preview
             self._update_preview()
@@ -654,7 +659,11 @@ class ChromaKeyApp(AppBase):
     
     def _on_processing_complete(self, success: bool):
         """Handle processing completion."""
-        self.btn_process.configure(state="normal")
+        self.btn_process.configure(
+            state="normal",
+            fg_color=("#28a745", "#22963E"),
+            hover_color=("#218838", "#1E7E34")
+        )
         self.btn_select.configure(state="normal")
         
         if success:
@@ -666,7 +675,11 @@ class ChromaKeyApp(AppBase):
     
     def _on_processing_error(self, error: str):
         """Handle processing error."""
-        self.btn_process.configure(state="normal")
+        self.btn_process.configure(
+            state="normal",
+            fg_color=("#28a745", "#22963E"),
+            hover_color=("#218838", "#1E7E34")
+        )
         self.btn_select.configure(state="normal")
         self.progress_panel.reset()
         
