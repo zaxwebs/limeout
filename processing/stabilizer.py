@@ -382,7 +382,7 @@ class PointStabilizer:
         if self._analyzed and frame_idx < len(self._offsets):
             dx, dy = self._offsets[frame_idx]
             tracked_box = self._tracking_boxes[frame_idx]
-        elif first_frame is not None and frame_idx > 0:
+        elif first_frame is not None and frame_idx != self.settings.reference_frame_idx:
             # Compute offset on-the-fly by tracking from reference frame
             offset, box = self._track_single_frame(first_frame, frame)
             if offset:
