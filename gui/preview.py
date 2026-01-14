@@ -128,32 +128,38 @@ class VideoPreview:
         Returns:
             BGR frame for display
         """
-        # Apply crop
+        # Apply stabilization FIRST on full frame if enabled
+        stab_alpha = None
+        stab_enabled = stabilizer and stabilizer.settings.enabled and stabilizer.settings.bounding_box
+        
+        if stab_enabled:
+            # Get reference frame for on-the-fly tracking comparison
+            ref_frame_idx = stabilizer.settings.reference_frame_idx
+            ref_frame = self.get_frame(ref_frame_idx)
+            
+            if ref_frame is not None:
+                # Stabilize the full frame (bounding box is in original frame space)
+                frame = stabilizer.preview_stabilization(
+                    frame, frame_number, draw_tracking_point=False, first_frame=ref_frame
+                )
+                    
+            # If stabilization returned BGRA, extract and preserve alpha for later
+            if len(frame.shape) > 2 and frame.shape[2] == 4:
+                stab_alpha = frame[:, :, 3].copy()
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+        
+        # Apply crop AFTER stabilization (this crops away the transparent borders)
         if crop:
             x, y, w, h = crop
             x2 = min(x + w, frame.shape[1])
             y2 = min(y + h, frame.shape[0])
             frame = frame[y:y2, x:x2]
+            # Also crop the stabilization alpha if we have it
+            if stab_alpha is not None:
+                stab_alpha = stab_alpha[y:y2, x:x2]
         
         if frame.size == 0:
             return np.zeros((100, 100, 3), dtype=np.uint8)
-        
-        # Apply stabilization before resize if enabled
-        stab_alpha = None
-        if stabilizer and stabilizer.settings.enabled and stabilizer.settings.tracking_point:
-            # Get first frame for on-the-fly tracking comparison
-            first_frame = self.get_frame(0)
-            if first_frame is not None:
-                # Apply same crop to first frame if cropping
-                if crop:
-                    first_frame = first_frame[y:y2, x:x2]
-                frame = stabilizer.preview_stabilization(
-                    frame, frame_number, draw_tracking_point=False, first_frame=first_frame
-                )
-            # If stabilization returned BGRA, extract and preserve alpha for later
-            if len(frame.shape) > 2 and frame.shape[2] == 4:
-                stab_alpha = frame[:, :, 3].copy()
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
         
         # Resize for preview
         height, width = frame.shape[:2]
@@ -169,15 +175,28 @@ class VideoPreview:
         preview = processor.preview_frame(frame, show_checkerboard, bg_color)
         
         # If we have stabilization alpha (transparent borders), apply it to the preview
-        if stab_alpha is not None and show_checkerboard:
-            # Create checkerboard background
+        if stab_alpha is not None:
             h, w = preview.shape[:2]
-            checker = self.create_checkerboard(h, w)
-            
-            # Blend preview with checkerboard using stabilization alpha
             alpha = stab_alpha.astype(float) / 255.0
             alpha = alpha[:, :, np.newaxis]  # Add channel dim
-            preview = (preview * alpha + checker * (1 - alpha)).astype(np.uint8)
+            
+            if show_checkerboard:
+                # Blend with checkerboard pattern
+                background = self.create_checkerboard(h, w)
+            elif bg_color:
+                # Create solid color background
+                # Parse hex color
+                hex_color = bg_color.lstrip('#')
+                r = int(hex_color[0:2], 16)
+                g = int(hex_color[2:4], 16)
+                b = int(hex_color[4:6], 16)
+                background = np.full((h, w, 3), [b, g, r], dtype=np.uint8)  # BGR
+            else:
+                # Default to black if somehow neither is set
+                background = np.zeros((h, w, 3), dtype=np.uint8)
+            
+            # Blend preview with background using stabilization alpha
+            preview = (preview * alpha + background * (1 - alpha)).astype(np.uint8)
         
         return preview
     
@@ -223,11 +242,17 @@ class PreviewWidget(ctk.CTkFrame):
         self._pan_y = 0
         self._drag_start = None
         
-        # Point selection mode
+        # Point/Region selection mode
         self._point_selection_mode = False
+        self._rect_selection_mode = False
         self._on_point_selected = None  # Callback(x, y) in original image coords
-        self._tracking_point = None  # (x, y) to draw marker
+        self._on_rect_selected = None  # Callback(x, y, w, h) in original image coords
+        self._tracking_point = None  # (x, y) to draw marker (deprecated)
+        self._tracking_box = None  # (x, y, w, h) bounding box to draw
+        self._stab_active = False  # Whether stabilization preview is active (skip canvas marker)
         self._preview_scale = 1.0  # Scale from original frame to preview image
+        self._rect_start = None  # Starting point for rectangle drawing
+        self._rect_current = None  # Current rectangle being drawn
         
         # Configure
         self.grid_columnconfigure(0, weight=1)
@@ -340,6 +365,10 @@ class PreviewWidget(ctk.CTkFrame):
         if frame is None:
             return
         
+        # Track whether stabilization is active (to skip canvas marker drawing)
+        stab_enabled = stabilizer and stabilizer.settings.enabled and stabilizer.settings.bounding_box
+        self._stab_active = stab_enabled
+        
         preview_frame = self.preview.create_preview(
             frame, processor, crop, show_checkerboard, bg_color, stabilizer, frame_number
         )
@@ -396,6 +425,12 @@ class PreviewWidget(ctk.CTkFrame):
         
     def _on_mouse_down(self, event):
         """Handle mouse button down."""
+        if self._rect_selection_mode:
+            # Start drawing rectangle
+            self._rect_start = (event.x, event.y)
+            self._rect_current = (event.x, event.y)
+            return
+        
         if self._point_selection_mode:
             # Convert canvas coords to image coords
             img_coords = self._canvas_to_image_coords(event.x, event.y)
@@ -411,6 +446,13 @@ class PreviewWidget(ctk.CTkFrame):
         
     def _on_mouse_drag(self, event):
         """Handle mouse drag."""
+        if self._rect_selection_mode and self._rect_start:
+            # Update rectangle preview
+            self._rect_current = (event.x, event.y)
+            self._redraw_image()
+            self._draw_selection_rect()
+            return
+        
         if self._drag_start:
             dx = event.x - self._drag_start[0]
             dy = event.y - self._drag_start[1]
@@ -423,6 +465,33 @@ class PreviewWidget(ctk.CTkFrame):
             
     def _on_mouse_up(self, event):
         """Handle mouse button release."""
+        if self._rect_selection_mode and self._rect_start:
+            # Finish rectangle selection
+            start_coords = self._canvas_to_image_coords(*self._rect_start)
+            end_coords = self._canvas_to_image_coords(event.x, event.y)
+            
+            if start_coords and end_coords and self._on_rect_selected:
+                x1, y1 = start_coords
+                x2, y2 = end_coords
+                
+                # Normalize to ensure positive width/height
+                x = min(x1, x2)
+                y = min(y1, y2)
+                w = abs(x2 - x1)
+                h = abs(y2 - y1)
+                
+                # Ensure minimum size
+                if w >= 10 and h >= 10:
+                    self._tracking_box = (x, y, w, h)
+                    self._on_rect_selected(x, y, w, h)
+                    self._rect_selection_mode = False
+                    self.canvas.configure(cursor="")
+            
+            self._rect_start = None
+            self._rect_current = None
+            self._redraw_image()
+            return
+        
         self._drag_start = None
         
     def _on_mouse_wheel(self, event):
@@ -503,32 +572,74 @@ class PreviewWidget(ctk.CTkFrame):
         self._on_point_selected = callback
         self.canvas.configure(cursor="crosshair")
     
+    def enable_rect_selection(self, callback: Callable[[int, int, int, int], None]):
+        """
+        Enable rectangle selection mode.
+        
+        When enabled, clicking and dragging on the preview will call the callback
+        with the bounding box coordinates (x, y, w, h) in original image space.
+        
+        Args:
+            callback: Function to call with (x, y, w, h) when region is selected
+        """
+        self._rect_selection_mode = True
+        self._on_rect_selected = callback
+        self.canvas.configure(cursor="crosshair")
+    
     def disable_point_selection(self):
         """Disable point selection mode."""
         self._point_selection_mode = False
         self._on_point_selected = None
         self.canvas.configure(cursor="")
     
+    def disable_rect_selection(self):
+        """Disable rectangle selection mode."""
+        self._rect_selection_mode = False
+        self._on_rect_selected = None
+        self._rect_start = None
+        self._rect_current = None
+        self.canvas.configure(cursor="")
+    
     def set_tracking_point(self, x: int, y: int):
-        """Set the tracking point to display a marker."""
-        self._tracking_point = (x, y)
+        """Set the tracking point to display a marker (deprecated, use set_tracking_box)."""
+        # Convert point to small box for backward compatibility
+        box_size = 50
+        box_x = max(0, x - box_size // 2)
+        box_y = max(0, y - box_size // 2)
+        self.set_tracking_box(box_x, box_y, box_size, box_size)
+    
+    def set_tracking_box(self, x: int, y: int, w: int, h: int):
+        """Set the tracking bounding box to display."""
+        self._tracking_box = (x, y, w, h)
+        self._tracking_point = None  # Clear old point
         self._redraw_image()
     
     def clear_tracking_point(self):
-        """Clear the tracking point marker."""
+        """Clear the tracking marker."""
         self._tracking_point = None
+        self._tracking_box = None
         self._redraw_image()
     
     def _draw_tracking_marker(self):
-        """Draw a crosshair marker at the tracking point."""
-        if self._tracking_point is None or self._pil_image is None:
+        """Draw a bounding box marker for the tracking region."""
+        if self._pil_image is None:
             return
+        
+        # Skip drawing canvas marker if stabilization is active
+        # (stabilizer draws its own fixed crosshair on the frame)
+        if self._stab_active:
+            return
+        
+        # Draw bounding box if set
+        if self._tracking_box:
+            self._draw_box_marker(self._tracking_box)
+    
+    def _draw_box_marker(self, box: Tuple[int, int, int, int]):
+        """Draw a bounding box marker on the canvas."""
+        x, y, w, h = box
         
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
-        
-        # Convert image coords to canvas coords
-        orig_x, orig_y = self._tracking_point
         
         center_x = (canvas_width // 2) + self._pan_x
         center_y = (canvas_height // 2) + self._pan_y
@@ -540,22 +651,47 @@ class PreviewWidget(ctk.CTkFrame):
         img_left = center_x - zoom_width / 2
         img_top = center_y - zoom_height / 2
         
-        canvas_x = img_left + orig_x * self._zoom_level
-        canvas_y = img_top + orig_y * self._zoom_level
+        # Scale coordinates for preview
+        scale = self._preview_scale * self._zoom_level
         
-        # Draw crosshair
-        size = 15
+        # Convert to canvas coordinates
+        canvas_x1 = img_left + x * scale
+        canvas_y1 = img_top + y * scale
+        canvas_x2 = img_left + (x + w) * scale
+        canvas_y2 = img_top + (y + h) * scale
+        
         color = "#FFFF00"  # Yellow
         
-        self.canvas.create_line(
-            canvas_x - size, canvas_y, canvas_x + size, canvas_y,
-            fill=color, width=2, tags="tracking_marker"
-        )
-        self.canvas.create_line(
-            canvas_x, canvas_y - size, canvas_x, canvas_y + size,
-            fill=color, width=2, tags="tracking_marker"
-        )
-        self.canvas.create_oval(
-            canvas_x - 8, canvas_y - 8, canvas_x + 8, canvas_y + 8,
+        # Draw rectangle
+        self.canvas.create_rectangle(
+            canvas_x1, canvas_y1, canvas_x2, canvas_y2,
             outline=color, width=2, tags="tracking_marker"
+        )
+        
+        # Draw center crosshair
+        cx = (canvas_x1 + canvas_x2) / 2
+        cy = (canvas_y1 + canvas_y2) / 2
+        size = 10
+        
+        self.canvas.create_line(
+            cx - size, cy, cx + size, cy,
+            fill=color, width=2, tags="tracking_marker"
+        )
+        self.canvas.create_line(
+            cx, cy - size, cx, cy + size,
+            fill=color, width=2, tags="tracking_marker"
+        )
+    
+    def _draw_selection_rect(self):
+        """Draw the rectangle being selected."""
+        if not self._rect_start or not self._rect_current:
+            return
+        
+        x1, y1 = self._rect_start
+        x2, y2 = self._rect_current
+        
+        # Draw selection rectangle
+        self.canvas.create_rectangle(
+            x1, y1, x2, y2,
+            outline="#00FF00", width=2, dash=(4, 4), tags="selection_rect"
         )

@@ -710,26 +710,46 @@ class ChromaKeyApp(AppBase):
         self._update_preview()
     
     def _on_start_point_selection(self):
-        """Start point selection mode on the preview."""
+        """Start region selection mode on the preview."""
         if not self.video_path:
             return
-        self.preview_widget.enable_point_selection(self._on_tracking_point_selected)
-        logger.info("Click on the preview to select a tracking point")
+        self.preview_widget.enable_rect_selection(self._on_tracking_region_selected)
+        logger.info("Click and drag on the preview to select a tracking region")
+    
+    def _on_tracking_region_selected(self, x: int, y: int, w: int, h: int):
+        """Handle tracking region selection from preview."""
+        # Disable selection mode
+        self.preview_widget.disable_rect_selection()
+        
+        # Get current frame index for reference
+        current_frame = self.timeline.get_frame()
+        
+        # The coordinates are in cropped preview space
+        # Convert to original frame space by adding crop offset
+        crop_left = int(self.crop_left.get())
+        crop_top = int(self.crop_top.get())
+        
+        # Store in original frame coordinates
+        orig_x = x + crop_left
+        orig_y = y + crop_top
+        
+        # Update stabilizer with bounding box and reference frame
+        self.stabilizer.set_bounding_box(orig_x, orig_y, w, h, current_frame)
+        
+        # Update UI (show in cropped space for display)
+        self.stabilization_panel.set_bounding_box(orig_x, orig_y, w, h)
+        self.preview_widget.set_tracking_box(x, y, w, h)  # Keep in preview space for display
+        
+        logger.success(f"Tracking region set: ({orig_x}, {orig_y}) {w}×{h} at frame {current_frame}")
+        self._update_preview()
     
     def _on_tracking_point_selected(self, x: int, y: int):
-        """Handle tracking point selection from preview."""
-        # Disable selection mode
-        self.preview_widget.disable_point_selection()
-        
-        # Update stabilizer
-        self.stabilizer.set_tracking_point(x, y)
-        
-        # Update UI
-        self.stabilization_panel.set_tracking_point(x, y)
-        self.preview_widget.set_tracking_point(x, y)
-        
-        logger.success(f"Tracking point set at ({x}, {y})")
-        self._update_preview()
+        """Handle tracking point selection (backward compat - creates default box)."""
+        # Convert to bounding box
+        box_size = 50
+        box_x = max(0, x - box_size // 2)
+        box_y = max(0, y - box_size // 2)
+        self._on_tracking_region_selected(box_x, box_y, box_size, box_size)
     
     def _on_stabilization_reset(self):
         """Reset stabilization settings."""
@@ -737,3 +757,4 @@ class ChromaKeyApp(AppBase):
         self.preview_widget.clear_tracking_point()
         logger.info("Stabilization reset")
         self._update_preview()
+

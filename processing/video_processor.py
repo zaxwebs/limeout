@@ -162,7 +162,7 @@ class VideoProcessor:
             
             # Stabilization analysis pass (if enabled)
             stabilizer = options.stabilizer
-            if stabilizer and stabilizer.settings.enabled and stabilizer.settings.tracking_point:
+            if stabilizer and stabilizer.settings.enabled and stabilizer.settings.bounding_box:
                 logger.info("Analyzing video for stabilization...")
                 if not stabilizer.analyze_video(str(input_file), progress_callback):
                     logger.warning("Stabilization analysis failed, proceeding without stabilization")
@@ -197,12 +197,7 @@ class VideoProcessor:
                 if not ret:
                     break
                 
-                # Apply crop
-                if crop:
-                    x, y, w, h = crop
-                    frame = frame[y:y+h, x:x+w]
-                
-                # Apply stabilization (before chroma key)
+                # Apply stabilization FIRST on full frame
                 if stabilizer:
                     frame = stabilizer.apply_stabilization(frame, frame_count)
                     # Convert back to BGR if stabilizer returned BGRA
@@ -214,6 +209,14 @@ class VideoProcessor:
                         stab_alpha = None
                 else:
                     stab_alpha = None
+                
+                # Apply crop AFTER stabilization (crops away transparent borders)
+                if crop:
+                    x, y, w, h = crop
+                    frame = frame[y:y+h, x:x+w]
+                    # Also crop stabilization alpha
+                    if stab_alpha is not None:
+                        stab_alpha = stab_alpha[y:y+h, x:x+w]
                 
                 # Process frame with chroma key
                 rgba = processor.process_frame(frame)

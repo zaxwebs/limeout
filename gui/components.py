@@ -552,7 +552,7 @@ class FrameTimeline(ctk.CTkFrame):
 
 class StabilizationPanel(ctk.CTkFrame):
     """
-    Panel for controlling video stabilization via point tracking.
+    Panel for controlling video stabilization via object boundary tracking.
     """
     
     def __init__(
@@ -566,9 +566,9 @@ class StabilizationPanel(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent", **kwargs)
         
         self.on_enable_change = on_enable_change
-        self.on_select_point = on_select_point
+        self.on_select_point = on_select_point  # Also used for region selection
         self.on_reset = on_reset
-        self._tracking_point: Optional[tuple] = None
+        self._bounding_box: Optional[tuple] = None
         self._is_selecting = False
         
         self.grid_columnconfigure(0, weight=1)
@@ -595,7 +595,7 @@ class StabilizationPanel(ctk.CTkFrame):
         # Description
         desc = ctk.CTkLabel(
             self,
-            text="Track a point to stabilize video around it",
+            text="Draw a box around the object to track",
             font=ctk.CTkFont(size=11),
             text_color=("gray50", "gray60")
         )
@@ -607,10 +607,10 @@ class StabilizationPanel(ctk.CTkFrame):
         btn_frame.grid_columnconfigure(0, weight=1)
         btn_frame.grid_columnconfigure(1, weight=1)
         
-        # Select Point button
+        # Select Region button
         self.select_btn = ctk.CTkButton(
             btn_frame,
-            text="🎯 Select Point",
+            text="🎯 Select Region",
             command=self._on_select_click,
             height=32,
             corner_radius=6,
@@ -632,10 +632,10 @@ class StabilizationPanel(ctk.CTkFrame):
         )
         self.reset_btn.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         
-        # Tracking point display
+        # Tracking region display
         self.point_label = ctk.CTkLabel(
             self,
-            text="No point selected",
+            text="No region selected",
             font=ctk.CTkFont(family="Consolas", size=11),
             text_color=("gray50", "gray60")
         )
@@ -663,9 +663,9 @@ class StabilizationPanel(ctk.CTkFrame):
                 self.on_select_point()
     
     def _on_reset_click(self):
-        self._tracking_point = None
+        self._bounding_box = None
         self._set_selecting(False)
-        self.point_label.configure(text="No point selected")
+        self.point_label.configure(text="No region selected")
         self.status_label.configure(text="")
         if self.on_reset:
             self.on_reset()
@@ -674,26 +674,34 @@ class StabilizationPanel(ctk.CTkFrame):
         self._is_selecting = selecting
         if selecting:
             self.select_btn.configure(
-                text="🎯 Click on Preview...",
+                text="🎯 Draw on Preview...",
                 fg_color=("#ffc107", "#e0a800")
             )
-            self.status_label.configure(text="Click on the preview to select a tracking point")
+            self.status_label.configure(text="Click and drag on preview to select region")
         else:
             self.select_btn.configure(
-                text="🎯 Select Point",
+                text="🎯 Select Region",
                 fg_color=("#3B8ED0", "#1F6AA5")
             )
             self.status_label.configure(text="")
     
-    def set_tracking_point(self, x: int, y: int):
-        """Set the tracking point coordinates."""
-        self._tracking_point = (x, y)
+    def set_bounding_box(self, x: int, y: int, w: int, h: int):
+        """Set the bounding box coordinates."""
+        self._bounding_box = (x, y, w, h)
         self._set_selecting(False)
-        self.point_label.configure(text=f"Tracking: ({x}, {y})")
+        self.point_label.configure(text=f"Region: ({x}, {y}) {w}×{h}")
         self.status_label.configure(
-            text="✓ Point selected",
+            text="✓ Region selected",
             text_color=("#28a745", "#22963E")
         )
+    
+    def set_tracking_point(self, x: int, y: int):
+        """Set tracking point (creates default bounding box for backward compat)."""
+        # Create a 50x50 box centered on the point
+        box_size = 50
+        box_x = max(0, x - box_size // 2)
+        box_y = max(0, y - box_size // 2)
+        self.set_bounding_box(box_x, box_y, box_size, box_size)
     
     def get_enabled(self) -> bool:
         return bool(self.enable_switch.get())
@@ -704,8 +712,15 @@ class StabilizationPanel(ctk.CTkFrame):
         else:
             self.enable_switch.deselect()
     
+    def get_bounding_box(self) -> Optional[tuple]:
+        return self._bounding_box
+    
     def get_tracking_point(self) -> Optional[tuple]:
-        return self._tracking_point
+        """Get center point of bounding box for backward compat."""
+        if self._bounding_box:
+            x, y, w, h = self._bounding_box
+            return (x + w // 2, y + h // 2)
+        return None
     
     def is_selecting(self) -> bool:
         return self._is_selecting
