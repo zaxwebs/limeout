@@ -192,13 +192,35 @@ class VideoProcessor:
             
             # Create writer
             logger.info(f"Creating output: {output_file.name}")
+            
+            # Determine codec parameters based on extension
+            output_extension = output_file.suffix.lower()
+            
+            if output_extension == '.mov':
+                # HEVC with Alpha for Safari
+                # Requires ffmpeg with libx265 support
+                codec = 'libx265'
+                pixelformat = 'yuva420p'
+                output_params = [
+                    '-tag:v', 'hvc1',       # Tag as HEVC for Apple compatibility
+                    '-x265-params', 'alpha=1' # Enable alpha channel in x265
+                ]
+                logger.info("Using HEVC (h.265) codec with alpha for Safari compatibility")
+                
+            else:
+                # Default to WebM (VP9)
+                codec = 'libvpx-vp9'
+                pixelformat = 'yuva420p'
+                output_params = ['-auto-alt-ref', '0'] # Preserve transparency
+                logger.info("Using VP9 codec with alpha")
+
             writer = imageio.get_writer(
                 str(output_file),
                 fps=fps,
-                codec='libvpx',
-                pixelformat='yuva420p',
+                codec=codec,
+                pixelformat=pixelformat,
                 macro_block_size=None,
-                output_params=['-auto-alt-ref', '0']
+                output_params=output_params
             )
             
             frame_count = 0

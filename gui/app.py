@@ -669,7 +669,10 @@ class ChromaKeyApp(AppBase):
         
         output_path = filedialog.asksaveasfilename(
             defaultextension=".webm",
-            filetypes=[("WebM Video", "*.webm")]
+            filetypes=[
+                ("WebM Video (VP9)", "*.webm"),
+                ("Safari Video (HEVC)", "*.mov")
+            ]
         )
         
         if not output_path:
