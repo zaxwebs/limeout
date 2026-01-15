@@ -298,7 +298,7 @@ class VideoProcessor:
                     pass
             self._is_processing = False
     
-    def export_png_sequence(
+    def export_image_sequence(
         self,
         input_path: str,
         output_folder: str,
@@ -307,7 +307,7 @@ class VideoProcessor:
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> bool:
         """
-        Export video frames as PNG sequence with transparency.
+        Export video frames as an image sequence (PNG) with transparency.
         
         Args:
             input_path: Source video path
@@ -330,11 +330,11 @@ class VideoProcessor:
             input_file = validate_video_path(input_path)
             
             # Create output folder
-            output_path = Path(output_folder)
-            output_path.mkdir(parents=True, exist_ok=True)
+            output_path_obj = Path(output_folder)
+            output_path_obj.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"Opening video: {input_file.name}")
-            logger.info(f"Output folder: {output_path}")
+            logger.info(f"Output folder: {output_path_obj} (Format: PNG)")
             
             # Open video
             cap = cv2.VideoCapture(str(input_file))
@@ -436,11 +436,12 @@ class VideoProcessor:
                 transparent_mask = rgba[:, :, 3] == 0
                 rgba[transparent_mask] = [0, 0, 0, 0]
                 
-                # Convert RGBA to BGRA for OpenCV save (OpenCV uses BGR order)
-                bgra = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA)
+                # Save frame
+                frame_filename = output_path_obj / f"frame_{str(frame_count).zfill(num_digits)}.png"
                 
-                # Save frame as PNG
-                frame_filename = output_path / f"frame_{str(frame_count).zfill(num_digits)}.png"
+                # Use OpenCV for PNG (faster, standard)
+                # Convert RGBA to BGRA for OpenCV save
+                bgra = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA)
                 cv2.imwrite(str(frame_filename), bgra)
                 
                 frame_count += 1
@@ -474,6 +475,19 @@ class VideoProcessor:
             if cap is not None:
                 cap.release()
             self._is_processing = False
+
+    def export_png_sequence(
+        self,
+        input_path: str,
+        output_folder: str,
+        settings: ChromaKeySettings,
+        options: Optional[ProcessingOptions] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None
+    ) -> bool:
+        """Wrapper for backward compatibility"""
+        return self.export_image_sequence(
+            input_path, output_folder, settings, options, progress_callback
+        )
 
 
 # Backwards compatibility function
