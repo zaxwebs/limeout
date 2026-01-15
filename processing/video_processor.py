@@ -196,16 +196,15 @@ class VideoProcessor:
             # Determine codec parameters based on extension
             output_extension = output_file.suffix.lower()
             
-            if output_extension == '.mov':
-                # HEVC with Alpha for Safari
-                # Requires ffmpeg with libx265 support
-                codec = 'libx265'
+            if output_extension == '.avif':
+                # AV1 with Alpha (Animated AVIF)
+                codec = 'libaom-av1'
                 pixelformat = 'yuva420p'
                 output_params = [
-                    '-tag:v', 'hvc1',       # Tag as HEVC for Apple compatibility
-                    '-x265-params', 'alpha=1' # Enable alpha channel in x265
+                    '-cpu-used', '5',      # Speed/Quality balance (0-8, higher is faster)
+                    '-crf', '30',          # Constant Rate Factor (quality)
                 ]
-                logger.info("Using HEVC (h.265) codec with alpha for Safari compatibility")
+                logger.info("Using AV1 codec (Animated AVIF) with alpha")
                 
             else:
                 # Default to WebM (VP9)
@@ -214,13 +213,19 @@ class VideoProcessor:
                 output_params = ['-auto-alt-ref', '0'] # Preserve transparency
                 logger.info("Using VP9 codec with alpha")
 
+            # ImageIO requires a format hint for .avif to use LL-FFMPEG plugin
+            writer_kwargs = {}
+            if output_extension == '.avif':
+                writer_kwargs['format'] = 'mp4'
+
             writer = imageio.get_writer(
                 str(output_file),
                 fps=fps,
                 codec=codec,
                 pixelformat=pixelformat,
                 macro_block_size=None,
-                output_params=output_params
+                output_params=output_params,
+                **writer_kwargs
             )
             
             frame_count = 0

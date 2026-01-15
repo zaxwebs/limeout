@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 SUPPORTED_VIDEO_FORMATS = (".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v")
-SUPPORTED_OUTPUT_FORMATS = (".webm", ".mov")
+SUPPORTED_OUTPUT_FORMATS = (".webm", ".avif")
 
 
 class ValidationError(Exception):

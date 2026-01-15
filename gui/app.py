@@ -671,7 +671,7 @@ class ChromaKeyApp(AppBase):
             defaultextension=".webm",
             filetypes=[
                 ("WebM Video (VP9)", "*.webm"),
-                ("Safari Video (HEVC)", "*.mov")
+                ("Animated AVIF", "*.avif")
             ]
         )
         
