@@ -245,6 +245,11 @@ class VideoProcessor:
                 if target_size:
                     rgba = cv2.resize(rgba, target_size, interpolation=cv2.INTER_AREA)
                 
+                # Optimization: Zero out RGB values for fully transparent pixels
+                # This significantly improves compression efficiency for the output video
+                transparent_mask = rgba[:, :, 3] == 0
+                rgba[transparent_mask] = [0, 0, 0, 0]
+
                 # Write frame
                 writer.append_data(rgba)
                 
