@@ -792,16 +792,23 @@ class SuccessDialog(ctk.CTkToplevel):
         self.open_folder_btn.grid(row=0, column=0, sticky="ew")
         
     def _open_folder(self):
-        """Open the folder containing the file."""
+        """Open the folder containing the file, or the folder itself for PNG sequences."""
         import subprocess
         import os
         try:
-            # Select the file in explorer
-            subprocess.run(f'explorer /select,"{os.path.abspath(self.output_path)}"')
+            abs_path = os.path.abspath(self.output_path)
+            
+            if os.path.isdir(abs_path):
+                # PNG sequence: open the folder directly
+                os.startfile(abs_path)
+            else:
+                # Video file: select the file in explorer
+                subprocess.run(f'explorer /select,"{abs_path}"')
         except Exception as e:
-            # Fallback to just opening the folder
+            # Fallback to just opening the parent folder
             try:
-                os.startfile(os.path.dirname(self.output_path))
+                folder = self.output_path if os.path.isdir(self.output_path) else os.path.dirname(self.output_path)
+                os.startfile(folder)
             except Exception:
                 pass
         self.destroy()

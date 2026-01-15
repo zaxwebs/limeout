@@ -193,30 +193,11 @@ class VideoProcessor:
             # Create writer
             logger.info(f"Creating output: {output_file.name}")
             
-            # Determine codec parameters based on extension
-            output_extension = output_file.suffix.lower()
-            
-            if output_extension == '.avif':
-                # AV1 with Alpha (Animated AVIF)
-                codec = 'libaom-av1'
-                pixelformat = 'yuva420p'
-                output_params = [
-                    '-cpu-used', '5',      # Speed/Quality balance (0-8, higher is faster)
-                    '-crf', '30',          # Constant Rate Factor (quality)
-                ]
-                logger.info("Using AV1 codec (Animated AVIF) with alpha")
-                
-            else:
-                # Default to WebM (VP9)
-                codec = 'libvpx-vp9'
-                pixelformat = 'yuva420p'
-                output_params = ['-auto-alt-ref', '0'] # Preserve transparency
-                logger.info("Using VP9 codec with alpha")
-
-            # ImageIO requires a format hint for .avif to use LL-FFMPEG plugin
-            writer_kwargs = {}
-            if output_extension == '.avif':
-                writer_kwargs['format'] = 'mp4'
+            # Use VP9 codec with alpha for WebM
+            codec = 'libvpx-vp9'
+            pixelformat = 'yuva420p'
+            output_params = ['-auto-alt-ref', '0']  # Preserve transparency
+            logger.info("Using VP9 codec with alpha")
 
             writer = imageio.get_writer(
                 str(output_file),
@@ -224,8 +205,7 @@ class VideoProcessor:
                 codec=codec,
                 pixelformat=pixelformat,
                 macro_block_size=None,
-                output_params=output_params,
-                **writer_kwargs
+                output_params=output_params
             )
             
             frame_count = 0
@@ -316,6 +296,183 @@ class VideoProcessor:
                     writer.close()
                 except Exception:
                     pass
+            self._is_processing = False
+    
+    def export_png_sequence(
+        self,
+        input_path: str,
+        output_folder: str,
+        settings: ChromaKeySettings,
+        options: Optional[ProcessingOptions] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None
+    ) -> bool:
+        """
+        Export video frames as PNG sequence with transparency.
+        
+        Args:
+            input_path: Source video path
+            output_folder: Output folder path (will be created if it doesn't exist)
+            settings: Chroma key settings
+            options: Processing options (crop, fps, etc.)
+            progress_callback: Callback(progress: 0-1, status_message)
+            
+        Returns:
+            True if successful, False if cancelled or failed
+        """
+        options = options or ProcessingOptions()
+        self._cancel_event.clear()
+        self._is_processing = True
+        
+        cap = None
+        
+        try:
+            # Validate input
+            input_file = validate_video_path(input_path)
+            
+            # Create output folder
+            output_path = Path(output_folder)
+            output_path.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Opening video: {input_file.name}")
+            logger.info(f"Output folder: {output_path}")
+            
+            # Open video
+            cap = cv2.VideoCapture(str(input_file))
+            if not cap.isOpened():
+                raise ValidationError("Failed to open video file")
+            
+            # Get video properties
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            
+            # Validate and apply crop
+            if options.crop:
+                crop = validate_crop_region(
+                    *options.crop, frame_width, frame_height
+                )
+                output_width = crop[2]
+                output_height = crop[3]
+            else:
+                crop = None
+                output_width = frame_width
+                output_height = frame_height
+            
+            # Calculate final dimensions if resizing
+            target_size = None
+            if options.resize_width and options.resize_width < output_width:
+                scale = options.resize_width / output_width
+                target_width = int(options.resize_width)
+                target_height = int(output_height * scale)
+                target_size = (target_width, target_height)
+                logger.info(f"Output will be resized to: {target_width}x{target_height}")
+            
+            # Initialize stats
+            self.stats.start(total_frames)
+            
+            # Create processor
+            processor = ChromaKeyProcessor(settings)
+            
+            # Stabilization analysis pass (if enabled)
+            stabilizer = options.stabilizer
+            if stabilizer and stabilizer.settings.enabled and stabilizer.settings.bounding_box:
+                logger.info("Analyzing video for stabilization...")
+                if not stabilizer.analyze_video(str(input_file), progress_callback):
+                    logger.warning("Stabilization analysis failed, proceeding without stabilization")
+                    stabilizer = None
+                else:
+                    logger.info("Stabilization analysis complete")
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            else:
+                stabilizer = None
+            
+            # Calculate padding for frame numbers
+            num_digits = len(str(total_frames))
+            
+            logger.info(f"Exporting {total_frames} frames as PNG sequence...")
+            
+            frame_count = 0
+            
+            while cap.isOpened():
+                # Check for cancellation
+                if self._cancel_event.is_set():
+                    logger.warning("Export cancelled by user")
+                    return False
+                
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Apply stabilization FIRST on full frame
+                if stabilizer:
+                    frame = stabilizer.apply_stabilization(frame, frame_count)
+                    if len(frame.shape) > 2 and frame.shape[2] == 4:
+                        stab_alpha = frame[:, :, 3]
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+                    else:
+                        stab_alpha = None
+                else:
+                    stab_alpha = None
+                
+                # Apply crop AFTER stabilization
+                if crop:
+                    x, y, w, h = crop
+                    frame = frame[y:y+h, x:x+w]
+                    if stab_alpha is not None:
+                        stab_alpha = stab_alpha[y:y+h, x:x+w]
+                
+                # Process frame with chroma key
+                rgba = processor.process_frame(frame)
+                
+                # Merge stabilization alpha with chroma key alpha
+                if stab_alpha is not None:
+                    rgba[:, :, 3] = cv2.bitwise_and(rgba[:, :, 3], stab_alpha)
+                
+                # Resize if needed
+                if target_size:
+                    rgba = cv2.resize(rgba, target_size, interpolation=cv2.INTER_AREA)
+                
+                # Optimization: Zero out RGB for fully transparent pixels
+                transparent_mask = rgba[:, :, 3] == 0
+                rgba[transparent_mask] = [0, 0, 0, 0]
+                
+                # Convert RGBA to BGRA for OpenCV save (OpenCV uses BGR order)
+                bgra = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA)
+                
+                # Save frame as PNG
+                frame_filename = output_path / f"frame_{str(frame_count).zfill(num_digits)}.png"
+                cv2.imwrite(str(frame_filename), bgra)
+                
+                frame_count += 1
+                self.stats.update(frame_count)
+                
+                # Report progress
+                if progress_callback and frame_count % 5 == 0:
+                    progress = frame_count / total_frames
+                    eta = self.stats.eta_seconds
+                    eta_str = f"{int(eta)}s remaining" if eta > 0 else ""
+                    progress_callback(progress, eta_str)
+            
+            self.stats.finish()
+            logger.success(
+                f"Export complete: {frame_count} PNG frames in {self.stats.duration:.1f}s "
+                f"({self.stats.fps:.1f} fps)"
+            )
+            
+            if progress_callback:
+                progress_callback(1.0, "Complete!")
+            
+            return True
+            
+        except ValidationError as e:
+            logger.error(str(e))
+            raise
+        except Exception as e:
+            logger.error(f"Export failed: {e}")
+            raise
+        finally:
+            if cap is not None:
+                cap.release()
             self._is_processing = False
 
 

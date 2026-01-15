@@ -113,7 +113,7 @@ class ChromaKeyApp(AppBase):
         
         self.btn_process = ctk.CTkButton(
             btn_frame,
-            text="▶  Start Processing",
+            text="▶  Export Video",
             height=42,
             corner_radius=8,
             font=ctk.CTkFont(size=13, weight="bold"),
@@ -122,7 +122,20 @@ class ChromaKeyApp(AppBase):
             command=self._start_processing,
             state="disabled"
         )
-        self.btn_process.grid(row=1, column=0, sticky="ew")
+        self.btn_process.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        
+        self.btn_png_export = ctk.CTkButton(
+            btn_frame,
+            text="🖼️  Export PNG Sequence",
+            height=36,
+            corner_radius=8,
+            font=ctk.CTkFont(size=12),
+            fg_color=("gray70", "gray30"),
+            hover_color=("gray65", "gray35"),
+            command=self._start_png_export,
+            state="disabled"
+        )
+        self.btn_png_export.grid(row=2, column=0, sticky="ew")
         
         # ═══════════════════════════════════════════════════════════════
         # PROGRESS PANEL
@@ -557,11 +570,15 @@ class ChromaKeyApp(AppBase):
             )
             
             # Enable processing
-            # Enable processing
             self.btn_process.configure(
                 state="normal",
                 fg_color=("#28a745", "#22963E"),
                 hover_color=("#218838", "#1E7E34")
+            )
+            self.btn_png_export.configure(
+                state="normal",
+                fg_color=("#17a2b8", "#138496"),
+                hover_color=("#138496", "#117a8b")
             )
             
             # Update preview
@@ -667,23 +684,51 @@ class ChromaKeyApp(AppBase):
         if not self.video_path:
             return
         
+        # Video export: Use save file dialog with video formats only
         output_path = filedialog.asksaveasfilename(
             defaultextension=".webm",
             filetypes=[
-                ("WebM Video (VP9)", "*.webm"),
-                ("Animated AVIF", "*.avif")
+                ("WebM Video (VP9)", "*.webm")
             ]
         )
         
         if not output_path:
             return
         
+        self._run_export(output_path, is_png_sequence=False)
+    
+    def _start_png_export(self):
+        """Start PNG sequence export with folder selection."""
+        if not self.video_path:
+            return
+        
+        # Ask user to create a new folder for the PNG sequence
+        from tkinter import simpledialog
+        
+        # Default folder name based on video name
+        default_name = Path(self.video_path).stem + "_frames"
+        
+        folder_path = filedialog.asksaveasfilename(
+            title="Create PNG Sequence Folder",
+            initialfile=default_name,
+            filetypes=[("Folder", "*")]
+        )
+        
+        if not folder_path:
+            return
+        
+        self._run_export(folder_path, is_png_sequence=True)
+    
+    def _run_export(self, output_path: str, is_png_sequence: bool):
+        """Run the export process."""
         # Disable UI
         self.btn_process.configure(state="disabled")
+        self.btn_png_export.configure(state="disabled")
         self.btn_select.configure(state="disabled")
         
         # Start progress
-        self.progress_panel.start("Processing video...")
+        status_msg = "Exporting PNG sequence..." if is_png_sequence else "Processing video..."
+        self.progress_panel.start(status_msg)
         
         # Get settings
         settings = self.chroma_settings
@@ -719,13 +764,22 @@ class ChromaKeyApp(AppBase):
         # Process in thread
         def process_thread():
             try:
-                success = self.processor.process(
-                    self.video_path,
-                    output_path,
-                    settings,
-                    options,
-                    self._on_progress
-                )
+                if is_png_sequence:
+                    success = self.processor.export_png_sequence(
+                        self.video_path,
+                        output_path,
+                        settings,
+                        options,
+                        self._on_progress
+                    )
+                else:
+                    success = self.processor.process(
+                        self.video_path,
+                        output_path,
+                        settings,
+                        options,
+                        self._on_progress
+                    )
                 
                 self.after(0, lambda: self._on_processing_complete(success, output_path))
                 
@@ -745,6 +799,11 @@ class ChromaKeyApp(AppBase):
             fg_color=("#28a745", "#22963E"),
             hover_color=("#218838", "#1E7E34")
         )
+        self.btn_png_export.configure(
+            state="normal",
+            fg_color=("#17a2b8", "#138496"),
+            hover_color=("#138496", "#117a8b")
+        )
         self.btn_select.configure(state="normal")
         
         if success:
@@ -760,6 +819,11 @@ class ChromaKeyApp(AppBase):
             state="normal",
             fg_color=("#28a745", "#22963E"),
             hover_color=("#218838", "#1E7E34")
+        )
+        self.btn_png_export.configure(
+            state="normal",
+            fg_color=("#17a2b8", "#138496"),
+            hover_color=("#138496", "#117a8b")
         )
         self.btn_select.configure(state="normal")
         self.progress_panel.reset()
