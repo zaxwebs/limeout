@@ -137,6 +137,19 @@ class ChromaKeyApp(AppBase):
         )
         self.btn_png_export.grid(row=2, column=0, sticky="ew")
         
+        self.btn_sbs_export = ctk.CTkButton(
+            btn_frame,
+            text="Export Masked Video",
+            height=36,
+            corner_radius=8,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=("gray70", "#0d1117"),  # GitHub Canvas (Disabled)
+            hover_color=("gray65", "#161b22"),
+            command=self._start_sbs_export,
+            state="disabled"
+        )
+        self.btn_sbs_export.grid(row=3, column=0, sticky="ew", pady=(8, 0))
+        
 
         
         # ═══════════════════════════════════════════════════════════════
@@ -563,6 +576,11 @@ class ChromaKeyApp(AppBase):
                 fg_color=("#17a2b8", "#1f6feb"),  # GitHub Blue (for secondary action)
                 hover_color=("#138496", "#1a5cff")
             )
+            self.btn_sbs_export.configure(
+                state="normal",
+                fg_color=("#17a2b8", "#1f6feb"),  # GitHub Blue (for secondary action)
+                hover_color=("#138496", "#1a5cff")
+            )
             
             # Update preview
             self._update_preview()
@@ -702,15 +720,41 @@ class ChromaKeyApp(AppBase):
         
         self._run_export(folder_path, is_png_sequence=True)
     
-    def _run_export(self, output_path: str, is_png_sequence: bool):
+    def _start_sbs_export(self):
+        """Start Side-by-Side (RGB + Mask) export."""
+        if not self.video_path:
+            return
+        
+        # Video export: Use save file dialog
+        output_path = filedialog.asksaveasfilename(
+            defaultextension=".webm",
+            filetypes=[
+                ("WebM Video (VP9)", "*.webm")
+            ],
+            initialfile=Path(self.video_path).stem + "_masked.webm"
+        )
+        
+        if not output_path:
+            return
+        
+        self._run_export(output_path, is_png_sequence=False, side_by_side_mask=True)
+    
+    def _run_export(self, output_path: str, is_png_sequence: bool, side_by_side_mask: bool = False):
         """Run the export process."""
         # Disable UI
         self.btn_process.configure(state="disabled")
         self.btn_png_export.configure(state="disabled")
+        self.btn_sbs_export.configure(state="disabled")
         self.btn_select.configure(state="disabled")
         
         # Start progress
-        status_msg = "Exporting PNG sequence..." if is_png_sequence else "Processing video..."
+        if is_png_sequence:
+            status_msg = "Exporting PNG sequence..."
+        elif side_by_side_mask:
+            status_msg = "Exporting Masked Video..."
+        else:
+            status_msg = "Processing video..."
+            
         self.progress_panel.start(status_msg)
         
         # Get settings
@@ -743,6 +787,9 @@ class ChromaKeyApp(AppBase):
             
             if abs(target_width - crop_width) > 1:
                 options.resize_width = target_width
+        
+        # Set mask option
+        options.side_by_side_mask = side_by_side_mask
         
         # Process in thread
         def process_thread():
@@ -787,6 +834,11 @@ class ChromaKeyApp(AppBase):
             fg_color=("#17a2b8", "#138496"),
             hover_color=("#138496", "#117a8b")
         )
+        self.btn_sbs_export.configure(
+            state="normal",
+            fg_color=("#17a2b8", "#138496"),
+            hover_color=("#138496", "#117a8b")
+        )
         self.btn_select.configure(state="normal")
         
         if success:
@@ -795,6 +847,29 @@ class ChromaKeyApp(AppBase):
             # Get stats
             stats = self.processor.stats
             stats_msg = f"Processed {stats.processed_frames} frames in {stats.duration:.1f}s ({stats.fps:.1f} fps)"
+            
+            # Add file size
+            try:
+                if output_path and os.path.exists(output_path):
+                    if os.path.isfile(output_path):
+                        size_bytes = os.path.getsize(output_path)
+                        if size_bytes > 1_000_000:
+                            size_str = f"{size_bytes / 1_000_000:.1f} MB"
+                        else:
+                            size_str = f"{size_bytes / 1_000:.1f} KB"
+                        stats_msg += f"\nFile Size: {size_str}"
+                    elif os.path.isdir(output_path):
+                        # Calculate total size of directory
+                        total_size = sum(os.path.getsize(os.path.join(dirpath, f)) 
+                                       for dirpath, _, filenames in os.walk(output_path) 
+                                       for f in filenames)
+                        if total_size > 1_000_000:
+                            size_str = f"{total_size / 1_000_000:.1f} MB"
+                        else:
+                            size_str = f"{total_size / 1_000:.1f} KB"
+                        stats_msg += f"\nTotal Size: {size_str}"
+            except Exception:
+                pass
             
             SuccessDialog(self, output_path, stats=stats_msg)
         else:

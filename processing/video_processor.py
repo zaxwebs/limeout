@@ -28,6 +28,7 @@ class ProcessingOptions:
     target_fps: Optional[float] = None  # None = use source FPS
     stabilizer: Optional[PointStabilizer] = None  # Stabilizer with tracking point set
     resize_width: Optional[int] = None  # Target output width (height scales to maintain aspect ratio)
+    side_by_side_mask: bool = False  # Export with mask side-by-side (2x width)
 
 
 class VideoProcessor:
@@ -193,11 +194,23 @@ class VideoProcessor:
             # Create writer
             logger.info(f"Creating output: {output_file.name}")
             
-            # Use VP9 codec with alpha for WebM
+            # Configure Output format
             codec = 'libvpx-vp9'
-            pixelformat = 'yuva420p'
-            output_params = ['-auto-alt-ref', '0']  # Preserve transparency
-            logger.info("Using VP9 codec with alpha")
+            
+            if options.side_by_side_mask:
+                # Opaque output, 2x width
+                pixelformat = 'yuv420p'
+                output_params = [] # Standard settings
+                final_output_width = output_width * 2
+                final_output_height = output_height
+                logger.info("Using side-by-side RGB+Alpha export (yuv420p)")
+            else:
+                # Standard transparent output
+                pixelformat = 'yuva420p'
+                output_params = ['-auto-alt-ref', '0']  # Preserve transparency
+                final_output_width = output_width
+                final_output_height = output_height
+                logger.info("Using user transparent export (yuva420p)")
 
             writer = imageio.get_writer(
                 str(output_file),
@@ -252,13 +265,35 @@ class VideoProcessor:
                 if target_size:
                     rgba = cv2.resize(rgba, target_size, interpolation=cv2.INTER_AREA)
                 
-                # Optimization: Zero out RGB values for fully transparent pixels
-                # This significantly improves compression efficiency for the output video
-                transparent_mask = rgba[:, :, 3] == 0
-                rgba[transparent_mask] = [0, 0, 0, 0]
+                if options.side_by_side_mask:
+                    # Create side-by-side frame
+                    h, w = rgba.shape[:2]
+                    sbs_frame = np.zeros((h, w * 2, 3), dtype=np.uint8)
+                    
+                    # Left side: RGB (pre-multiplied black if desired, but here we keep original colors)
+                    # To match webgl mimic transparency, usually we want black background for RGB part
+                    # Apply alpha to RGB to matte against black
+                    alpha_factor = rgba[:, :, 3] / 255.0
+                    for c in range(3):
+                       sbs_frame[:, :w, c] = rgba[:, :, c] * alpha_factor
+                    
+                    # Right side: Alpha channel as grayscale
+                    # Replicate alpha to 3 channels
+                    alpha = rgba[:, :, 3]
+                    for c in range(3):
+                        sbs_frame[:, w:, c] = alpha
+                    
+                    # Write SBS frame (it's RGB now)
+                    writer.append_data(sbs_frame)
+                    
+                else:
+                    # Optimization: Zero out RGB values for fully transparent pixels
+                    # This significantly improves compression efficiency for the output video
+                    transparent_mask = rgba[:, :, 3] == 0
+                    rgba[transparent_mask] = [0, 0, 0, 0]
 
-                # Write frame
-                writer.append_data(rgba)
+                    # Write frame
+                    writer.append_data(rgba)
                 
                 frame_count += 1
                 self.stats.update(frame_count)
