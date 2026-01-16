@@ -337,76 +337,6 @@ class PresetSelector(ctk.CTkFrame):
         self.dropdown.set(preset_name)
 
 
-class StatusLog(ctk.CTkFrame):
-    """
-    Scrollable status log with color-coded messages.
-    """
-    
-    # Color mapping for log levels
-    LEVEL_COLORS = {
-        "ERROR": "#da3633",  # GitHub Danger
-        "WARNING": "#d29922", # GitHub Warning
-        "SUCCESS": "#238636", # GitHub Success
-        "INFO": "#7d8590"    # GitHub Secondary Text
-    }
-    
-    def __init__(self, parent, max_lines: int = 100, **kwargs):
-        super().__init__(parent, corner_radius=8, fg_color=("white", "#21262d"), **kwargs) # GitHub Card
-        
-        self.max_lines = max_lines
-        self._lines: List[tuple] = []  # (level, message)
-        
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        
-        # Header
-        header = ctk.CTkLabel(
-            self,
-            text="Activity Log",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            anchor="w"
-        )
-        header.grid(row=0, column=0, sticky="w", padx=10, pady=(8, 4))
-        
-        # Text widget
-        self.text = ctk.CTkTextbox(
-            self,
-            height=100,
-            font=ctk.CTkFont(family="Consolas", size=10),
-            state="disabled",
-            corner_radius=6,
-            fg_color=("white", "#0d1117"),  # GitHub Canvas
-            border_color=("gray70", "#30363d"), # GitHub Border
-            border_width=1
-        )
-        self.text.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
-    
-    def log(self, message: str, level: str = "INFO"):
-        """Add a message to the log."""
-        level = level.upper()
-        self._lines.append((level, message))
-        
-        # Trim if too long
-        if len(self._lines) > self.max_lines:
-            self._lines = self._lines[-self.max_lines:]
-        
-        # Update display
-        self.text.configure(state="normal")
-        self.text.delete("1.0", "end")
-        
-        for lvl, msg in self._lines:
-            prefix = {"ERROR": "✗", "WARNING": "!", "SUCCESS": "✓", "INFO": "•"}.get(lvl, "•")
-            self.text.insert("end", f"{prefix} {msg}\n")
-        
-        self.text.see("end")
-        self.text.configure(state="disabled")
-    
-    def clear(self):
-        """Clear the log."""
-        self._lines = []
-        self.text.configure(state="normal")
-        self.text.delete("1.0", "end")
-        self.text.configure(state="disabled")
 
 
 class FrameTimeline(ctk.CTkFrame):
@@ -725,12 +655,12 @@ class SuccessDialog(ctk.CTkToplevel):
     Dialog shown after successful processing with options to open/view file.
     """
     
-    def __init__(self, parent, output_path: str, **kwargs):
+    def __init__(self, parent, output_path: str, stats: str = "", **kwargs):
         super().__init__(parent, fg_color=("gray95", "#0d1117"), **kwargs)  # GitHub Canvas
         
         self.output_path = output_path
         self.title("Processing Complete")
-        self.geometry("450x280")
+        self.geometry("450x300")
         self.resizable(False, False)
         
         # Make modal
@@ -757,7 +687,17 @@ class SuccessDialog(ctk.CTkToplevel):
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=("gray10", "#e6edf3")
         )
-        self.msg_label.grid(row=0, column=0, pady=(10, 0))
+        self.msg_label.grid(row=0, column=0, pady=(10, 5))
+        
+        # Stats label
+        if stats:
+            self.stats_label = ctk.CTkLabel(
+                self.label_frame,
+                text=stats,
+                font=ctk.CTkFont(size=12),
+                text_color=("#28a745", "#238636")  # GitHub Green
+            )
+            self.stats_label.grid(row=1, column=0, pady=(0, 5))
         
         # File path (truncated if too long)
         path = Path(output_path)

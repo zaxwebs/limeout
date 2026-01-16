@@ -19,7 +19,6 @@ except ImportError:
 from gui.components import (
     SliderGroup,
     ProgressPanel,
-    StatusLog,
     FrameTimeline,
     StabilizationPanel,
     SuccessDialog
@@ -74,8 +73,6 @@ class ChromaKeyApp(AppBase):
         self._setup_sidebar()
         self._setup_main_area()
         
-        # Setup logger callback
-        logger.set_gui_callback(self._on_log_message)
         
         # Handle window close
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -140,14 +137,7 @@ class ChromaKeyApp(AppBase):
         )
         self.btn_png_export.grid(row=2, column=0, sticky="ew")
         
-        # ═══════════════════════════════════════════════════════════════
-        # PROGRESS PANEL
-        # ═══════════════════════════════════════════════════════════════
-        self.progress_panel = ProgressPanel(
-            self.sidebar,
-            cancel_callback=self._cancel_processing
-        )
-        self.progress_panel.grid(row=1, column=0, padx=16, pady=(0, 15), sticky="ew")
+
         
         # ═══════════════════════════════════════════════════════════════
         # SPACER
@@ -155,10 +145,14 @@ class ChromaKeyApp(AppBase):
         self.sidebar.grid_rowconfigure(2, weight=1)
         
         # ═══════════════════════════════════════════════════════════════
-        # STATUS LOG
         # ═══════════════════════════════════════════════════════════════
-        self.status_log = StatusLog(self.sidebar, max_lines=50)
-        self.status_log.grid(row=3, column=0, padx=16, pady=10, sticky="ew")
+        # PROGRESS PANEL (Bottom)
+        # ═══════════════════════════════════════════════════════════════
+        self.progress_panel = ProgressPanel(
+            self.sidebar,
+            cancel_callback=self._cancel_processing
+        )
+        self.progress_panel.grid(row=3, column=0, padx=16, pady=20, sticky="ew")
         
 
     
@@ -797,7 +791,12 @@ class ChromaKeyApp(AppBase):
         
         if success:
             self.progress_panel.finish("Complete!")
-            SuccessDialog(self, output_path)
+            
+            # Get stats
+            stats = self.processor.stats
+            stats_msg = f"Processed {stats.processed_frames} frames in {stats.duration:.1f}s ({stats.fps:.1f} fps)"
+            
+            SuccessDialog(self, output_path, stats=stats_msg)
         else:
             self.progress_panel.reset()
             logger.warning("Processing was cancelled")
@@ -824,9 +823,7 @@ class ChromaKeyApp(AppBase):
         """Cancel current processing."""
         self.processor.cancel()
     
-    def _on_log_message(self, level: str, message: str):
-        """Handle log message callback."""
-        self.after(0, lambda: self.status_log.log(message, level))
+
     
     def _on_close(self):
         """Handle window close."""
