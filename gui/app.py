@@ -145,7 +145,7 @@ class ChromaKeyApp(AppBase):
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=("gray70", "#0d1117"),  # GitHub Canvas (Disabled)
             hover_color=("gray65", "#161b22"),
-            command=self._start_sbs_export,
+            command=self._start_masked_export,
             state="disabled"
         )
         self.btn_sbs_export.grid(row=3, column=0, sticky="ew", pady=(8, 0))
@@ -720,26 +720,26 @@ class ChromaKeyApp(AppBase):
         
         self._run_export(folder_path, is_png_sequence=True)
     
-    def _start_sbs_export(self):
-        """Start Side-by-Side (RGB + Mask) export."""
+    def _start_masked_export(self):
+        """Start Stacked (RGB + Mask) export."""
         if not self.video_path:
             return
         
         # Video export: Use save file dialog
         output_path = filedialog.asksaveasfilename(
-            defaultextension=".webm",
+            defaultextension=".mp4",
             filetypes=[
-                ("WebM Video (VP9)", "*.webm")
+                ("HEVC Video (MP4)", "*.mp4")
             ],
-            initialfile=Path(self.video_path).stem + "_masked.webm"
+            initialfile=Path(self.video_path).stem + "_masked.mp4"
         )
         
         if not output_path:
             return
         
-        self._run_export(output_path, is_png_sequence=False, side_by_side_mask=True)
+        self._run_export(output_path, is_png_sequence=False, stacked_mask=True)
     
-    def _run_export(self, output_path: str, is_png_sequence: bool, side_by_side_mask: bool = False):
+    def _run_export(self, output_path: str, is_png_sequence: bool, stacked_mask: bool = False):
         """Run the export process."""
         # Disable UI
         self.btn_process.configure(state="disabled")
@@ -750,7 +750,7 @@ class ChromaKeyApp(AppBase):
         # Start progress
         if is_png_sequence:
             status_msg = "Exporting PNG sequence..."
-        elif side_by_side_mask:
+        elif stacked_mask:
             status_msg = "Exporting Masked Video..."
         else:
             status_msg = "Processing video..."
@@ -789,7 +789,7 @@ class ChromaKeyApp(AppBase):
                 options.resize_width = target_width
         
         # Set mask option
-        options.side_by_side_mask = side_by_side_mask
+        options.stacked_mask = stacked_mask
         
         # Process in thread
         def process_thread():
