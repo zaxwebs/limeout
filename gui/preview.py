@@ -229,7 +229,7 @@ class PreviewWidget(ctk.CTkFrame):
     """
     
     def __init__(self, parent, max_height: int = 400, **kwargs):
-        super().__init__(parent, corner_radius=12, **kwargs)
+        super().__init__(parent, corner_radius=12, fg_color=("gray92", "#161b22"), **kwargs)  # GitHub Surface
         
         self.preview = VideoPreview(max_height=max_height)
         self._current_image = None
@@ -307,7 +307,7 @@ class PreviewWidget(ctk.CTkFrame):
         self.canvas = tk.Canvas(
             self,
             highlightthickness=0,
-            bg="#2b2b2b"  # Dark background to match theme
+            bg="#161b22"  # GitHub Surface
         )
         self.canvas.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         self.canvas.grid_remove()

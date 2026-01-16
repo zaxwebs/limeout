@@ -57,6 +57,7 @@ class ChromaKeyApp(AppBase):
         self.title("Limeout")
         self.geometry(f"{config_manager.config.window_width}x{config_manager.config.window_height}")
         self.minsize(1000, 750)
+        self.configure(fg_color=("gray92", "#0d1117"))  # GitHub Canvas
         
         # Configure appearance
         ctk.set_appearance_mode(config_manager.config.appearance_mode)
@@ -87,7 +88,7 @@ class ChromaKeyApp(AppBase):
     
     def _setup_sidebar(self):
         """Create the sidebar with controls."""
-        self.sidebar = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray88", "gray17"))
+        self.sidebar = ctk.CTkFrame(self, corner_radius=0, fg_color=("gray88", "#161b22"))  # GitHub Sidebar
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_columnconfigure(0, weight=1)
         
@@ -100,25 +101,26 @@ class ChromaKeyApp(AppBase):
         
         self.btn_select = ctk.CTkButton(
             btn_frame,
-            text="📂  Select Video",
+            text="Select Video",
             height=42,
             corner_radius=8,
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color=("gray78", "gray28"),
-            hover_color=("gray70", "gray35"),
-            text_color=("gray10", "gray90"),
+            fg_color=("gray78", "#21262d"),  # GitHub Secondary Button
+            hover_color=("gray70", "#30363d"),
+            text_color=("gray10", "#e6edf3"), # GitHub Text
             command=self._select_video
         )
         self.btn_select.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         
         self.btn_process = ctk.CTkButton(
             btn_frame,
-            text="▶  Export Video",
+
+            text="Export Video",
             height=42,
             corner_radius=8,
             font=ctk.CTkFont(size=13, weight="bold"),
-            fg_color=("gray70", "gray30"),  # Gray when disabled
-            hover_color=("gray65", "gray35"),
+            fg_color=("gray70", "#0d1117"),  # GitHub Canvas (Disabled)
+            hover_color=("gray65", "#161b22"),
             command=self._start_processing,
             state="disabled"
         )
@@ -126,12 +128,13 @@ class ChromaKeyApp(AppBase):
         
         self.btn_png_export = ctk.CTkButton(
             btn_frame,
-            text="🖼️  Export PNG Sequence",
+
+            text="Export PNG Sequence",
             height=36,
             corner_radius=8,
             font=ctk.CTkFont(size=12),
-            fg_color=("gray70", "gray30"),
-            hover_color=("gray65", "gray35"),
+            fg_color=("gray70", "#0d1117"),  # GitHub Canvas (Disabled)
+            hover_color=("gray65", "#161b22"),
             command=self._start_png_export,
             state="disabled"
         )
@@ -144,7 +147,7 @@ class ChromaKeyApp(AppBase):
             self.sidebar,
             cancel_callback=self._cancel_processing
         )
-        self.progress_panel.grid(row=1, column=0, padx=12, pady=15, sticky="ew")
+        self.progress_panel.grid(row=1, column=0, padx=16, pady=(0, 15), sticky="ew")
         
         # ═══════════════════════════════════════════════════════════════
         # SPACER
@@ -155,22 +158,9 @@ class ChromaKeyApp(AppBase):
         # STATUS LOG
         # ═══════════════════════════════════════════════════════════════
         self.status_log = StatusLog(self.sidebar, max_lines=50)
-        self.status_log.grid(row=3, column=0, padx=12, pady=10, sticky="ew")
+        self.status_log.grid(row=3, column=0, padx=16, pady=10, sticky="ew")
         
-        # ═══════════════════════════════════════════════════════════════
-        # VIDEO INFO FOOTER
-        # ═══════════════════════════════════════════════════════════════
-        footer_frame = ctk.CTkFrame(self.sidebar, fg_color=("gray88", "gray18"), corner_radius=0)
-        footer_frame.grid(row=4, column=0, sticky="ew")
-        footer_frame.grid_columnconfigure(0, weight=1)
-        
-        self.video_info_label = ctk.CTkLabel(
-            footer_frame,
-            text="No video loaded",
-            font=ctk.CTkFont(size=11),
-            text_color=("gray50", "gray60")
-        )
-        self.video_info_label.grid(row=0, column=0, padx=16, pady=12)
+
     
     def _setup_main_area(self):
         """Create the main content area."""
@@ -215,23 +205,27 @@ class ChromaKeyApp(AppBase):
             self.main_frame,
             height=250,
             corner_radius=10,
-            segmented_button_selected_color=("#3B8ED0", "#1F6AA5"),
-            segmented_button_selected_hover_color=("#36749E", "#1A5A8A")
+            fg_color=("gray95", "#161b22"),  # GitHub Surface
+            segmented_button_fg_color=("gray90", "#21262d"),  # GitHub Secondary for button container
+            segmented_button_unselected_color=("gray90", "#21262d"),  # GitHub Secondary
+            segmented_button_unselected_hover_color=("gray85", "#30363d"),  # GitHub Border/Hover
+            segmented_button_selected_color=("#3B8ED0", "#2f81f7"),  # GitHub Blue
+            segmented_button_selected_hover_color=("#36749E", "#1a5cff")
         )
         self.controls_tabs.grid(row=2, column=0, sticky="ew", padx=5, pady=(10, 0))
         
         # Create tabs
-        self.controls_tabs.add("🎨 Color Range")
-        self.controls_tabs.add("✨ Effects")
-        self.controls_tabs.add("📍 Stabilize")
-        self.controls_tabs.add("✂️ Crop")
-        self.controls_tabs.add("📏 Dimensions")
-        self.controls_tabs.add("🖼️ Preview")
+        self.controls_tabs.add("Color Range")
+        self.controls_tabs.add("Effects")
+        self.controls_tabs.add("Stabilize")
+        self.controls_tabs.add("Crop")
+        self.controls_tabs.add("Dimensions")
+        self.controls_tabs.add("Preview")
         
         # ─────────────────────────────────────────────────────────────
         # TAB: DIMENSIONS
         # ─────────────────────────────────────────────────────────────
-        dim_tab = self.controls_tabs.tab("📏 Dimensions")
+        dim_tab = self.controls_tabs.tab("Dimensions")
         dim_tab.grid_columnconfigure(0, weight=1)
         
         # Section header
@@ -239,7 +233,7 @@ class ChromaKeyApp(AppBase):
             dim_tab,
             text="Resize output (aspect ratio preserved)",
             font=ctk.CTkFont(size=11),
-            text_color=("gray50", "gray60")
+            text_color=("gray50", "#7d8590")
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(5, 10))
         
         dim_frame = ctk.CTkFrame(dim_tab, fg_color="transparent")
@@ -258,16 +252,16 @@ class ChromaKeyApp(AppBase):
             height=28,
             width=120,
             command=self._reset_resize,
-            fg_color=("gray75", "gray30"),
-            hover_color=("gray65", "gray40"),
-            text_color=("gray10", "gray90"),
+            fg_color=("gray75", "#21262d"),  # GitHub Secondary
+            hover_color=("gray65", "#30363d"),
+            text_color=("gray10", "#e6edf3"),
             font=ctk.CTkFont(size=11)
         ).grid(row=1, column=0, pady=(10, 0))
         
         # ─────────────────────────────────────────────────────────────
         # TAB 1: COLOR RANGE (HSV)
         # ─────────────────────────────────────────────────────────────
-        color_tab = self.controls_tabs.tab("🎨 Color Range")
+        color_tab = self.controls_tabs.tab("Color Range")
         color_tab.grid_columnconfigure(0, weight=1)
         
         # Section header
@@ -275,7 +269,7 @@ class ChromaKeyApp(AppBase):
             color_tab,
             text="Adjust the HSV values to target the background color",
             font=ctk.CTkFont(size=11),
-            text_color=("gray50", "gray60")
+            text_color=("gray50", "#7d8590")
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(5, 10))
         
         # Sliders container
@@ -306,7 +300,7 @@ class ChromaKeyApp(AppBase):
         # ─────────────────────────────────────────────────────────────
         # TAB 2: EFFECTS
         # ─────────────────────────────────────────────────────────────
-        effects_tab = self.controls_tabs.tab("✨ Effects")
+        effects_tab = self.controls_tabs.tab("Effects")
         effects_tab.grid_columnconfigure(0, weight=1)
         
         # Section header
@@ -314,7 +308,7 @@ class ChromaKeyApp(AppBase):
             effects_tab,
             text="Fine-tune the output with edge and color corrections",
             font=ctk.CTkFont(size=11),
-            text_color=("gray50", "gray60")
+            text_color=("gray50", "#7d8590")
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(5, 10))
         
         effects_frame = ctk.CTkFrame(effects_tab, fg_color="transparent")
@@ -339,15 +333,15 @@ class ChromaKeyApp(AppBase):
         # Helper text for defringe
         ctk.CTkLabel(
             effects_frame,
-            text="💡 Use Defringe for semi-transparent areas like fins, glass, hair",
+            text="Use Defringe for semi-transparent areas like fins, glass, hair",
             font=ctk.CTkFont(size=10),
-            text_color=("gray50", "gray55")
+            text_color=("gray50", "#7d8590")
         ).grid(row=3, column=0, sticky="w", pady=(4, 0))
         
         # ─────────────────────────────────────────────────────────────
         # TAB 3: STABILIZE
         # ─────────────────────────────────────────────────────────────
-        stabilize_tab = self.controls_tabs.tab("📍 Stabilize")
+        stabilize_tab = self.controls_tabs.tab("Stabilize")
         stabilize_tab.grid_columnconfigure(0, weight=1)
         
         # Stabilization Panel
@@ -362,7 +356,7 @@ class ChromaKeyApp(AppBase):
         # ─────────────────────────────────────────────────────────────
         # TAB 4: CROP
         # ─────────────────────────────────────────────────────────────
-        crop_tab = self.controls_tabs.tab("✂️ Crop")
+        crop_tab = self.controls_tabs.tab("Crop")
         crop_tab.grid_columnconfigure(0, weight=1)
         
         # Crop controls container (crop is always enabled)
@@ -375,7 +369,7 @@ class ChromaKeyApp(AppBase):
         # ─────────────────────────────────────────────────────────────
         # TAB 5: PREVIEW
         # ─────────────────────────────────────────────────────────────
-        preview_tab = self.controls_tabs.tab("🖼️ Preview")
+        preview_tab = self.controls_tabs.tab("Preview")
         preview_tab.grid_columnconfigure(0, weight=1)
         
         # Section header
@@ -383,7 +377,7 @@ class ChromaKeyApp(AppBase):
             preview_tab,
             text="Preview background color (for visualization only, not exported)",
             font=ctk.CTkFont(size=11),
-            text_color=("gray50", "gray60")
+            text_color=("gray50", "#7d8590")
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 10))
         
         # Color picker frame
@@ -406,7 +400,7 @@ class ChromaKeyApp(AppBase):
             width=36,
             height=36,
             corner_radius=6,
-            fg_color=("#3B8ED0", "#1F6AA5"),
+            fg_color=("#3B8ED0", "#2f81f7"),  # GitHub Blue
             font=ctk.CTkFont(size=16),
             command=lambda: self._set_preview_bg("checkerboard")
         )
@@ -498,8 +492,8 @@ class ChromaKeyApp(AppBase):
         self.preview_bg_color = color
         
         # Update button highlighting - reset all, then highlight selected
-        default_color = ("gray78", "gray28")
-        selected_color = ("#3B8ED0", "#1F6AA5")
+        default_color = ("gray78", "#21262d")
+        selected_color = ("#3B8ED0", "#2f81f7")
         
         self.bg_checker_btn.configure(fg_color=selected_color if color == "checkerboard" else default_color)
         self.bg_black_btn.configure(fg_color="#000000" if color != "#000000" else selected_color)
@@ -562,23 +556,18 @@ class ChromaKeyApp(AppBase):
             self.resize_slider.slider.configure(to=info['width'])
             self.resize_slider.set(info['width'])
             
-            # Update info label with icon
-            duration = info['frame_count'] / info['fps'] if info['fps'] > 0 else 0
-            self.video_info_label.configure(
-                text=f"📹 {info['width']}×{info['height']} • {info['fps']:.1f}fps • {duration:.1f}s",
-                text_color=("gray30", "gray70")
-            )
+
             
             # Enable processing
             self.btn_process.configure(
                 state="normal",
-                fg_color=("#28a745", "#22963E"),
-                hover_color=("#218838", "#1E7E34")
+                fg_color=("#28a745", "#238636"),  # GitHub Green
+                hover_color=("#218838", "#2ea043")
             )
             self.btn_png_export.configure(
                 state="normal",
-                fg_color=("#17a2b8", "#138496"),
-                hover_color=("#138496", "#117a8b")
+                fg_color=("#17a2b8", "#1f6feb"),  # GitHub Blue (for secondary action)
+                hover_color=("#138496", "#1a5cff")
             )
             
             # Update preview
@@ -796,8 +785,8 @@ class ChromaKeyApp(AppBase):
         """Handle processing completion."""
         self.btn_process.configure(
             state="normal",
-            fg_color=("#28a745", "#22963E"),
-            hover_color=("#218838", "#1E7E34")
+            fg_color=("#28a745", "#238636"),
+            hover_color=("#218838", "#2ea043")
         )
         self.btn_png_export.configure(
             state="normal",

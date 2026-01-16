@@ -51,7 +51,7 @@ class SliderGroup(ctk.CTkFrame):
             command=self._on_change,
             height=16,
             button_length=12,
-            progress_color=("#3B8ED0", "#1F6AA5")
+            progress_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
         )
         self.slider.set(default)
         self.slider.grid(row=0, column=1, sticky="ew", padx=(0, 10))
@@ -63,7 +63,7 @@ class SliderGroup(ctk.CTkFrame):
             width=40,
             anchor="e",
             font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
-            text_color=("#3B8ED0", "#4DA6FF")
+            text_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
         )
         self.value_label.grid(row=0, column=2, sticky="e")
     
@@ -110,9 +110,9 @@ class ToggleOption(ctk.CTkFrame):
             text=label,
             command=self._on_change,
             font=ctk.CTkFont(size=12),
-            progress_color=("#28a745", "#22963E"),
-            button_color=("gray70", "gray30"),
-            button_hover_color=("gray60", "gray40")
+            progress_color=("#28a745", "#238636"),  # GitHub Green
+            button_color=("gray70", "gray85"),
+            button_hover_color=("gray60", "gray95")
         )
         self.switch.grid(row=0, column=0, sticky="w")
         
@@ -153,7 +153,8 @@ class ProgressPanel(ctk.CTkFrame):
         cancel_callback: Optional[Callable] = None,
         **kwargs
     ):
-        super().__init__(parent, corner_radius=10, **kwargs)
+
+        super().__init__(parent, corner_radius=8, fg_color=("white", "#21262d"), **kwargs)  # GitHub Card
         
         self.cancel_callback = cancel_callback
         
@@ -165,27 +166,22 @@ class ProgressPanel(ctk.CTkFrame):
         header_frame.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 8))
         header_frame.grid_columnconfigure(1, weight=1)
         
-        self.status_icon = ctk.CTkLabel(
-            header_frame,
-            text="⏸",
-            font=ctk.CTkFont(size=16)
-        )
-        self.status_icon.grid(row=0, column=0, padx=(0, 8))
-        
         self.status_label = ctk.CTkLabel(
             header_frame,
             text="Ready",
             font=ctk.CTkFont(size=13, weight="bold"),
             anchor="w"
         )
-        self.status_label.grid(row=0, column=1, sticky="w")
+        self.status_label.grid(row=0, column=0, sticky="w")
         
         # Progress bar with custom colors
         self.progress_bar = ctk.CTkProgressBar(
             self,
             height=8,
             corner_radius=4,
-            progress_color=("#28a745", "#22963E")
+            progress_color=("#28a745", "#238636"),  # GitHub Green
+            border_color="#30363d",
+            border_width=1
         )
         self.progress_bar.grid(row=1, column=0, sticky="ew", padx=12, pady=8)
         self.progress_bar.set(0)
@@ -199,7 +195,7 @@ class ProgressPanel(ctk.CTkFrame):
             self.bottom_frame,
             text="0%",
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=("#3B8ED0", "#4DA6FF")
+            text_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
         )
         self.percent_label.grid(row=0, column=0, sticky="w")
         
@@ -216,8 +212,10 @@ class ProgressPanel(ctk.CTkFrame):
             text="✕ Cancel",
             width=80,
             height=28,
-            fg_color=("gray85", "gray25"),
-            hover_color=("#dc3545", "#c82333"),
+            fg_color=("gray85", "#21262d"),  # GitHub Secondary Button
+            hover_color=("#dc3545", "#da3633"),  # GitHub Danger
+            border_width=1,
+            border_color=("gray70", "#30363d"),  # GitHub Border
             text_color=("gray10", "gray90"),
             font=ctk.CTkFont(size=11),
             corner_radius=6,
@@ -232,10 +230,9 @@ class ProgressPanel(ctk.CTkFrame):
     
     def start(self, status: str = "Processing..."):
         """Start progress tracking."""
-        self.status_icon.configure(text="▶")
         self.status_label.configure(text=status)
         self.progress_bar.set(0)
-        self.progress_bar.configure(progress_color=("#3B8ED0", "#1F6AA5"))
+        self.progress_bar.configure(progress_color=("#3B8ED0", "#2f81f7"))  # GitHub Blue
         self.percent_label.configure(text="0%")
         self.eta_label.configure(text="")
         self.cancel_btn.grid()  # Show cancel button
@@ -248,9 +245,8 @@ class ProgressPanel(ctk.CTkFrame):
     
     def finish(self, status: str = "Complete!"):
         """Mark as complete."""
-        self.status_icon.configure(text="✓")
         self.progress_bar.set(1)
-        self.progress_bar.configure(progress_color=("#28a745", "#22963E"))
+        self.progress_bar.configure(progress_color=("#28a745", "#238636"))  # GitHub Green
         self.percent_label.configure(text="100%")
         self.eta_label.configure(text="")
         self.status_label.configure(text=status)
@@ -258,10 +254,9 @@ class ProgressPanel(ctk.CTkFrame):
     
     def reset(self):
         """Reset to initial state."""
-        self.status_icon.configure(text="⏸")
         self.status_label.configure(text="Ready")
         self.progress_bar.set(0)
-        self.progress_bar.configure(progress_color=("#28a745", "#22963E"))
+        self.progress_bar.configure(progress_color=("#28a745", "#238636"))  # GitHub Green
         self.percent_label.configure(text="0%")
         self.eta_label.configure(text="")
         self.cancel_btn.grid_remove()
@@ -310,11 +305,15 @@ class PresetSelector(ctk.CTkFrame):
         # Save button
         self.save_btn = ctk.CTkButton(
             self,
-            text="💾",
-            width=36,
+            text="Save",
+            width=50,
             height=32,
             corner_radius=6,
             font=ctk.CTkFont(size=14),
+            fg_color=("gray85", "#21262d"),  # GitHub Secondary
+            hover_color=("gray75", "#30363d"),
+            border_width=1,
+            border_color=("gray70", "#30363d"),
             command=self._on_save
         )
         self.save_btn.grid(row=0, column=2, padx=(8, 0))
@@ -345,14 +344,14 @@ class StatusLog(ctk.CTkFrame):
     
     # Color mapping for log levels
     LEVEL_COLORS = {
-        "ERROR": "#dc3545",
-        "WARNING": "#ffc107", 
-        "SUCCESS": "#28a745",
-        "INFO": "#6c757d"
+        "ERROR": "#da3633",  # GitHub Danger
+        "WARNING": "#d29922", # GitHub Warning
+        "SUCCESS": "#238636", # GitHub Success
+        "INFO": "#7d8590"    # GitHub Secondary Text
     }
     
     def __init__(self, parent, max_lines: int = 100, **kwargs):
-        super().__init__(parent, corner_radius=8, **kwargs)
+        super().__init__(parent, corner_radius=8, fg_color=("white", "#21262d"), **kwargs) # GitHub Card
         
         self.max_lines = max_lines
         self._lines: List[tuple] = []  # (level, message)
@@ -363,7 +362,7 @@ class StatusLog(ctk.CTkFrame):
         # Header
         header = ctk.CTkLabel(
             self,
-            text="📋 Activity Log",
+            text="Activity Log",
             font=ctk.CTkFont(size=11, weight="bold"),
             anchor="w"
         )
@@ -375,7 +374,10 @@ class StatusLog(ctk.CTkFrame):
             height=100,
             font=ctk.CTkFont(family="Consolas", size=10),
             state="disabled",
-            corner_radius=6
+            corner_radius=6,
+            fg_color=("white", "#0d1117"),  # GitHub Canvas
+            border_color=("gray70", "#30363d"), # GitHub Border
+            border_width=1
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
     
@@ -393,7 +395,7 @@ class StatusLog(ctk.CTkFrame):
         self.text.delete("1.0", "end")
         
         for lvl, msg in self._lines:
-            prefix = {"ERROR": "✗", "WARNING": "⚠", "SUCCESS": "✓", "INFO": "•"}.get(lvl, "•")
+            prefix = {"ERROR": "✗", "WARNING": "!", "SUCCESS": "✓", "INFO": "•"}.get(lvl, "•")
             self.text.insert("end", f"{prefix} {msg}\n")
         
         self.text.see("end")
@@ -455,8 +457,8 @@ class FrameTimeline(ctk.CTkFrame):
             height=28,
             corner_radius=6,
             fg_color="transparent",
-            hover_color=("gray80", "gray30"),
-            text_color=("gray20", "gray80"),
+            hover_color=("gray80", "#21262d"),  # GitHub Secondary
+            text_color=("gray20", "#e6edf3"),   # GitHub Text
             font=ctk.CTkFont(size=14),
             command=self._go_prev_frame
         )
@@ -469,7 +471,8 @@ class FrameTimeline(ctk.CTkFrame):
             to=max(1, total_frames - 1),
             command=self._on_slider_change,
             height=16,
-            button_length=14
+            button_length=14,
+            progress_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
         )
         self.slider.set(0)
         self.slider.grid(row=0, column=2, sticky="ew", padx=4)
@@ -482,8 +485,8 @@ class FrameTimeline(ctk.CTkFrame):
             height=28,
             corner_radius=6,
             fg_color="transparent",
-            hover_color=("gray80", "gray30"),
-            text_color=("gray20", "gray80"),
+            hover_color=("gray80", "#21262d"),  # GitHub Secondary
+            text_color=("gray20", "#e6edf3"),   # GitHub Text
             font=ctk.CTkFont(size=14),
             command=self._go_next_frame
         )
@@ -576,7 +579,7 @@ class StabilizationPanel(ctk.CTkFrame):
         # Header
         header = ctk.CTkLabel(
             self,
-            text="📍 Stabilization",
+            text="Stabilization",
             font=ctk.CTkFont(size=13, weight="bold"),
             anchor="w"
         )
@@ -588,7 +591,7 @@ class StabilizationPanel(ctk.CTkFrame):
             text="Enable Stabilization",
             command=self._on_enable_change,
             font=ctk.CTkFont(size=12),
-            progress_color=("#28a745", "#22963E")
+            progress_color=("#28a745", "#238636"),  # GitHub Green
         )
         self.enable_switch.grid(row=1, column=0, sticky="w", pady=(0, 8))
         
@@ -610,11 +613,11 @@ class StabilizationPanel(ctk.CTkFrame):
         # Select Region button
         self.select_btn = ctk.CTkButton(
             btn_frame,
-            text="🎯 Select Region",
+            text="Select Region",
             command=self._on_select_click,
             height=32,
             corner_radius=6,
-            fg_color=("#3B8ED0", "#1F6AA5"),
+            fg_color=("#3B8ED0", "#2f81f7"),  # GitHub Blue
             font=ctk.CTkFont(size=12)
         )
         self.select_btn.grid(row=0, column=0, sticky="ew", padx=(0, 4))
@@ -622,12 +625,14 @@ class StabilizationPanel(ctk.CTkFrame):
         # Reset button
         self.reset_btn = ctk.CTkButton(
             btn_frame,
-            text="✕ Reset",
+            text="Reset",
             command=self._on_reset_click,
             height=32,
             corner_radius=6,
-            fg_color=("gray75", "gray30"),
-            hover_color=("#dc3545", "#c82333"),
+            fg_color=("gray75", "#21262d"),  # GitHub Secondary
+            hover_color=("#dc3545", "#da3633"), # GitHub Danger
+            border_width=1,
+            border_color=("gray70", "#30363d"),
             font=ctk.CTkFont(size=12)
         )
         self.reset_btn.grid(row=0, column=1, sticky="ew", padx=(4, 0))
@@ -665,14 +670,14 @@ class StabilizationPanel(ctk.CTkFrame):
         self._is_selecting = selecting
         if selecting:
             self.select_btn.configure(
-                text="🎯 Draw on Preview...",
-                fg_color=("#ffc107", "#e0a800")
+                text="Draw on Preview...",
+                fg_color=("#ffc107", "#d29922") # GitHub Warning (Yellow)
             )
             self.point_label.configure(text="Click and drag on preview...")
         else:
             self.select_btn.configure(
-                text="🎯 Select Region",
-                fg_color=("#3B8ED0", "#1F6AA5")
+                text="Select Region",
+                fg_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
             )
             if not self._bounding_box:
                 self.point_label.configure(text="No region selected")
@@ -721,7 +726,7 @@ class SuccessDialog(ctk.CTkToplevel):
     """
     
     def __init__(self, parent, output_path: str, **kwargs):
-        super().__init__(parent, **kwargs)
+        super().__init__(parent, fg_color=("gray95", "#0d1117"), **kwargs)  # GitHub Canvas
         
         self.output_path = output_path
         self.title("Processing Complete")
@@ -746,20 +751,13 @@ class SuccessDialog(ctk.CTkToplevel):
         self.label_frame.grid(row=0, column=0, pady=(20, 10), sticky="ew")
         self.label_frame.grid_columnconfigure(0, weight=1)
         
-        self.icon_label = ctk.CTkLabel(
-            self.label_frame,
-            text="✓",
-            font=ctk.CTkFont(size=40),
-            text_color=("#28a745", "#22963E")
-        )
-        self.icon_label.grid(row=0, column=0)
-        
         self.msg_label = ctk.CTkLabel(
             self.label_frame,
             text="Video processed successfully!",
-            font=ctk.CTkFont(size=14, weight="bold")
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=("gray10", "#e6edf3")
         )
-        self.msg_label.grid(row=1, column=0, pady=(5, 0))
+        self.msg_label.grid(row=0, column=0, pady=(10, 0))
         
         # File path (truncated if too long)
         path = Path(output_path)
@@ -780,14 +778,17 @@ class SuccessDialog(ctk.CTkToplevel):
         self.btn_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
         self.btn_frame.grid_columnconfigure(0, weight=1)
         
+        # Open Folder button
         self.open_folder_btn = ctk.CTkButton(
             self.btn_frame,
-            text="📂 Open Folder",
+            text="Open Folder",
             height=36,
             command=self._open_folder,
-            fg_color=("gray75", "gray30"),
-            hover_color=("gray65", "gray40"),
-            text_color=("gray10", "gray90")
+            fg_color=("gray75", "#21262d"),  # GitHub Secondary
+            hover_color=("gray65", "#30363d"),
+            text_color=("gray10", "#e6edf3"),
+            border_width=1,
+            border_color=("gray70", "#30363d")
         )
         self.open_folder_btn.grid(row=0, column=0, sticky="ew")
         
