@@ -129,7 +129,7 @@ class ChromaKeyApp(AppBase):
             text="Export PNG Sequence",
             height=36,
             corner_radius=8,
-            font=ctk.CTkFont(size=12),
+            font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=("gray70", "#0d1117"),  # GitHub Canvas (Disabled)
             hover_color=("gray65", "#161b22"),
             command=self._start_png_export,
