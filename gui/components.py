@@ -51,7 +51,9 @@ class SliderGroup(ctk.CTkFrame):
             command=self._on_change,
             height=16,
             button_length=12,
-            progress_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
+            progress_color=("#3B8ED0", "#2f81f7"),  # GitHub Blue
+            button_color=("#3B8ED0", "#2f81f7"),    # GitHub Blue
+            button_hover_color=("#36749E", "#1a5cff")
         )
         self.slider.set(default)
         self.slider.grid(row=0, column=1, sticky="ew", padx=(0, 10))
@@ -402,7 +404,9 @@ class FrameTimeline(ctk.CTkFrame):
             command=self._on_slider_change,
             height=16,
             button_length=14,
-            progress_color=("#3B8ED0", "#2f81f7")  # GitHub Blue
+            progress_color=("#3B8ED0", "#2f81f7"),  # GitHub Blue
+            button_color=("#3B8ED0", "#2f81f7"),    # GitHub Blue
+            button_hover_color=("#36749E", "#1a5cff")
         )
         self.slider.set(0)
         self.slider.grid(row=0, column=2, sticky="ew", padx=4)
