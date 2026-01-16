@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 SUPPORTED_VIDEO_FORMATS = (".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v")
-SUPPORTED_OUTPUT_FORMATS = (".webm", ".png", ".mp4")
+SUPPORTED_OUTPUT_FORMATS = (".webm", ".png")
 
 
 class ValidationError(Exception):
@@ -81,7 +81,7 @@ def validate_output_path(path: str) -> Path:
     # Validate extension
     if output_path.suffix.lower() not in SUPPORTED_OUTPUT_FORMATS:
         raise ValidationError(
-            f"Output must be WebM, MP4, or PNG format.\n"
+            f"Output must be WebM or PNG format.\n"
             f"Got: {output_path.suffix}"
         )
     
